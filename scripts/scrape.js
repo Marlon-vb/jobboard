@@ -23,7 +23,8 @@ import {
   isEuropeOrRemote,
   normalizeCountry,
   guessSeniority,
-  classifyRemote
+  classifyRemote,
+  detectEnglishFriendly
 } from '../lib/filters.js';
 import { loadEnv } from '../lib/env.js';
 
@@ -674,13 +675,15 @@ const SOURCES = {
 // ---- Orchestration ---------------------------------------------------------
 
 function toRecord(raw) {
+  const adText = `${raw.title || ''} ${raw.description || ''}`;
   return {
     id: stableId(raw.source, raw.rawId),
     title: (raw.title || '').trim(),
     company: (raw.company || 'Unknown').trim(),
     location: (raw.location || 'Remote').trim(),
     country: normalizeCountry(raw.location || ''),
-    remote: classifyRemote(raw.location || '', raw.remoteFlag),
+    remote: classifyRemote(raw.location || '', raw.remoteFlag, adText),
+    english: detectEnglishFriendly(adText, normalizeCountry(raw.location || '')),
     seniority: guessSeniority(raw.title || ''),
     category: (raw.category || '').trim(),
     tags: (Array.isArray(raw.tags) ? raw.tags : []).slice(0, 10),

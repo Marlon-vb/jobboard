@@ -54,6 +54,7 @@ function applyFilters(jobs, q) {
   if (q.country) out = out.filter((j) => j.country === q.country);
   if (q.seniority) out = out.filter((j) => j.seniority === q.seniority);
   if (q.remote) out = out.filter((j) => j.remote === q.remote);
+  if (q.english) out = out.filter((j) => j.english === q.english);
   if (q.source) out = out.filter((j) => j.source === q.source);
 
   const sort = q.sort || 'newest';
@@ -90,6 +91,7 @@ app.get('/api/meta', async (_req, res) => {
     countries: facet(data.jobs, 'country'),
     seniorities: facet(data.jobs, 'seniority'),
     remoteTypes: facet(data.jobs, 'remote'),
+    englishTypes: facet(data.jobs, 'english'),
     sourceFacets: facet(data.jobs, 'source')
   });
 });

@@ -3,7 +3,7 @@
 // These guard the core promise: only specific DEI job functions get through,
 // and roles that merely mention diversity/equity in boilerplate do not.
 
-import { isDeiRole, isEuropeOrRemote } from '../lib/filters.js';
+import { isDeiRole, isEuropeOrRemote, classifyRemote, detectEnglishFriendly } from '../lib/filters.js';
 
 // Real DEI job functions — these MUST match.
 const shouldMatch = [
@@ -60,7 +60,37 @@ const europeNo = [
   ['Canada', '']
 ];
 
+// Remote detection from ad text (location may be a city).
+const remoteChecks = [
+  [classifyRemote('Berlin, Germany', false, 'This role is fully remote within Europe.'), 'Remote'],
+  [classifyRemote('Paris', false, 'Poste en télétravail complet.'), 'Remote'],
+  [classifyRemote('Madrid', false, 'Trabajo en remoto, equipo distribuido.'), 'Remote'],
+  [classifyRemote('Munich', false, 'Hybrides Arbeiten, 2 Tage im Büro.'), 'Hybrid'],
+  [classifyRemote('Amsterdam', false, 'On-site role, in office 5 days a week.'), 'On-site'],
+  [classifyRemote('Anywhere', true, ''), 'Remote']
+];
+
+// English-speaker friendliness.
+const englishChecks = [
+  [detectEnglishFriendly('Our working language is English; no German required.', 'Germany'), 'English-friendly'],
+  [detectEnglishFriendly('We are looking for a diversity manager to join our team and help build an inclusive culture for everyone.', 'Netherlands'), 'English-friendly'],
+  [detectEnglishFriendly('Wir suchen eine Person mit fließend Deutsch in Wort und Schrift.', 'Germany'), 'Local language'],
+  [detectEnglishFriendly('Diversity & Inclusion Lead', 'United Kingdom'), 'English-friendly']
+];
+
 let failures = 0;
+for (const [got, want] of remoteChecks) {
+  if (got !== want) {
+    console.error(`✗ remote: got "${got}", want "${want}"`);
+    failures++;
+  }
+}
+for (const [got, want] of englishChecks) {
+  if (got !== want) {
+    console.error(`✗ english: got "${got}", want "${want}"`);
+    failures++;
+  }
+}
 for (const j of shouldMatch) {
   if (!isDeiRole(j)) {
     console.error(`✗ FALSE NEGATIVE (should be DEI): "${j.title}"`);
@@ -90,5 +120,7 @@ if (failures) {
   console.error(`\n${failures} test(s) failed.`);
   process.exit(1);
 }
-const total = shouldMatch.length + shouldNotMatch.length + europeOk.length + europeNo.length;
-console.log(`✓ all ${total} filter tests passed (DEI + Europe)`);
+const total =
+  shouldMatch.length + shouldNotMatch.length + europeOk.length + europeNo.length +
+  remoteChecks.length + englishChecks.length;
+console.log(`✓ all ${total} filter tests passed (DEI + Europe + remote + English)`);

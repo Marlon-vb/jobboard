@@ -10,6 +10,7 @@ const state = {
   country: '',
   seniority: '',
   remote: '',
+  english: '',
   source: '',
   tab: 'open'
 };
@@ -46,6 +47,7 @@ const els = {
 
 const FACETS = [
   { key: 'remote', el: $('facet-remote'), metaKey: 'remoteTypes' },
+  { key: 'english', el: $('facet-english'), metaKey: 'englishTypes' },
   { key: 'seniority', el: $('facet-seniority'), metaKey: 'seniorities' },
   { key: 'country', el: $('facet-country'), metaKey: 'countries' },
   { key: 'source', el: $('facet-source'), metaKey: 'sourceFacets' }
@@ -75,7 +77,7 @@ function timeAgo(iso) {
 
 function queryString() {
   const p = new URLSearchParams();
-  for (const k of ['q', 'sort', 'country', 'seniority', 'remote', 'source']) if (state[k]) p.set(k, state[k]);
+  for (const k of ['q', 'sort', 'country', 'seniority', 'remote', 'english', 'source']) if (state[k]) p.set(k, state[k]);
   return p.toString();
 }
 
@@ -105,7 +107,7 @@ function renderFacet(facet, values) {
 function renderPills() {
   const active = [];
   if (state.q) active.push(['q', `“${state.q}”`]);
-  for (const k of ['remote', 'seniority', 'country', 'source']) if (state[k]) active.push([k, state[k]]);
+  for (const k of ['remote', 'english', 'seniority', 'country', 'source']) if (state[k]) active.push([k, state[k]]);
   els.pills.innerHTML = active.map(([k, v]) => `<span class="pill" data-clear="${k}">${esc(v)}</span>`).join('');
 }
 
@@ -132,6 +134,8 @@ function jobCard(j) {
       <div class="job-meta">
         <span class="tag remote">📍 ${esc(j.location)}</span>
         <span class="tag remote">${esc(j.remote)}</span>
+        ${j.english === 'English-friendly' ? '<span class="tag english">🗣 English OK</span>' : ''}
+        ${j.english === 'Local language' ? '<span class="tag local">🗣 Local language</span>' : ''}
         <span class="tag seniority">${esc(j.seniority)}</span>
         ${j.salary ? `<span class="tag">💶 ${esc(j.salary)}</span>` : ''}
         ${tags}
@@ -203,6 +207,7 @@ function openDrawer(id) {
   const specs = [
     ['Location', j.location],
     ['Work style', j.remote],
+    j.english ? ['Language', j.english] : null,
     ['Seniority', j.seniority],
     ['Source', j.source],
     j.salary ? ['Salary', j.salary] : null,
@@ -279,7 +284,7 @@ function toggleReviewed(id) {
 
 // ---- State changes ----
 function clearAll() {
-  Object.assign(state, { q: '', country: '', seniority: '', remote: '', source: '' });
+  Object.assign(state, { q: '', country: '', seniority: '', remote: '', english: '', source: '' });
   els.search.value = '';
   loadMeta();
   loadJobs();

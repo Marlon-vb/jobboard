@@ -487,6 +487,14 @@ body {
   color: var(--amber);
   border-color: rgba(255, 210, 124, 0.35);
 }
+.tag.english {
+  color: #7CFFA0;
+  border-color: rgba(124, 255, 160, 0.4);
+}
+.tag.local {
+  color: #ff9e7c;
+  border-color: rgba(255, 158, 124, 0.35);
+}
 .job-desc {
   color: var(--ink-dim);
   font-size: 13.5px;
