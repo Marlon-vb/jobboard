@@ -86,6 +86,14 @@ async function postJson(url, body, { timeout = 240000 } = {}) {
   }
 }
 
+// Treat the .env.example placeholders ("your_..._here") as unset, so a freshly
+// copied .env doesn't enable a source and then fail with a confusing 401.
+function realEnv(name) {
+  const v = process.env[name];
+  if (!v || /^your_.*_here$/i.test(v) || /_here$/i.test(v)) return '';
+  return v;
+}
+
 // Return the first present, non-empty value among several candidate keys —
 // lets one mapping work across Apify actors that name fields differently.
 function pickField(obj, keys) {
@@ -359,8 +367,12 @@ async function fromAdzuna() {
   // If APIFY_ADZUNA_INPUT is unset we build a sensible default that searches the
   // European Adzuna sites for DEI terms. Output field names vary by actor, so we
   // map defensively. The strict DEI title filter still trims to real DEI roles.
-  const token = process.env.APIFY_TOKEN;
-  if (!token) throw new Error('set APIFY_TOKEN (e.g. in .env) to enable the Apify Adzuna source');
+  const token = realEnv('APIFY_TOKEN');
+  if (!token) {
+    throw new Error(
+      'set a real APIFY_TOKEN in .env (the placeholder "your_apify_token_here" does not count)'
+    );
+  }
 
   const actor = process.env.APIFY_ADZUNA_ACTOR || 'powerbox~adzuna-jobs-search-scraper';
   const query = process.env.ADZUNA_QUERY || 'diversity inclusion';
@@ -427,7 +439,7 @@ const SOURCES = {
   himalayas: { fn: fromHimalayas, default: true },
   greenhouse: { fn: fromGreenhouse, default: !!process.env.GREENHOUSE_BOARDS },
   lever: { fn: fromLever, default: !!process.env.LEVER_BOARDS },
-  adzuna: { fn: fromAdzuna, default: !!process.env.APIFY_TOKEN }
+  adzuna: { fn: fromAdzuna, default: !!realEnv('APIFY_TOKEN') }
 };
 
 // ---- Orchestration ---------------------------------------------------------
