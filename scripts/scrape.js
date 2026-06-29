@@ -358,22 +358,67 @@ const ADZUNA_DOMAINS = {
   pl: 'adzuna.pl'
 };
 
+// Adzuna. Prefer Adzuna's own API (reliable, structured) when keys are present;
+// otherwise fall back to running an Adzuna scraper actor on Apify.
 async function fromAdzuna() {
-  // Adzuna via an Apify actor (instead of Adzuna's own API). Set APIFY_TOKEN in
-  // your .env. The actor and its input are overridable so you can point this at
-  // whichever Adzuna actor you pick from the Apify Store:
-  //   APIFY_ADZUNA_ACTOR  — actor id, e.g. "powerbox~adzuna-jobs-search-scraper"
-  //   APIFY_ADZUNA_INPUT  — raw JSON input for that actor (copy from its page)
-  // If APIFY_ADZUNA_INPUT is unset we build a sensible default that searches the
-  // European Adzuna sites for DEI terms. Output field names vary by actor, so we
-  // map defensively. The strict DEI title filter still trims to real DEI roles.
-  const token = realEnv('APIFY_TOKEN');
-  if (!token) {
-    throw new Error(
-      'set a real APIFY_TOKEN in .env (the placeholder "your_apify_token_here" does not count)'
-    );
-  }
+  const id = realEnv('ADZUNA_APP_ID');
+  const key = realEnv('ADZUNA_APP_KEY');
+  if (id && key) return adzunaViaApi(id, key);
 
+  const token = realEnv('APIFY_TOKEN');
+  if (token) return adzunaViaApify(token);
+
+  throw new Error(
+    'set ADZUNA_APP_ID + ADZUNA_APP_KEY (recommended) — or APIFY_TOKEN — in .env to enable Adzuna'
+  );
+}
+
+// Direct Adzuna API: one request per European country, DEI keywords via what_or,
+// fresh + sorted by date. The strict DEI title filter then keeps real DEI roles.
+async function adzunaViaApi(id, key) {
+  const countries = (process.env.ADZUNA_COUNTRIES || Object.keys(ADZUNA_DOMAINS).join(','))
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter((c) => ADZUNA_DOMAINS[c]);
+  const what = encodeURIComponent(process.env.ADZUNA_QUERY || 'diversity inclusion equity belonging dei');
+  const perPage = Number(process.env.ADZUNA_RESULTS || 50);
+
+  const out = [];
+  for (const c of countries) {
+    const url =
+      `https://api.adzuna.com/v1/api/jobs/${c}/search/1?app_id=${id}&app_key=${key}` +
+      `&results_per_page=${perPage}&what_or=${what}&max_days_old=45&sort_by=date&content-type=application/json`;
+    let data;
+    try {
+      data = await getJson(url);
+    } catch (e) {
+      console.warn(`    · adzuna ${c.toUpperCase()}: ${e.message} (skipped)`);
+      continue;
+    }
+    for (const j of data.results || []) {
+      out.push({
+        source: 'adzuna',
+        rawId: j.id,
+        title: clean(j.title || ''),
+        company: j.company?.display_name || 'Unknown',
+        location: j.location?.display_name || c.toUpperCase(),
+        category: j.category?.label || '',
+        tags: [c.toUpperCase()],
+        url: j.redirect_url,
+        posted: j.created,
+        salary: j.salary_min ? `${Math.round(j.salary_min)}-${Math.round(j.salary_max || j.salary_min)}` : '',
+        remoteFlag: /remote/i.test(`${j.title} ${j.description || ''}`),
+        description: clean(j.description || '')
+      });
+    }
+  }
+  return out;
+}
+
+// Fallback: run an Adzuna scraper actor on Apify. Actor + input are overridable
+// (APIFY_ADZUNA_ACTOR, APIFY_ADZUNA_INPUT) because each actor's schema differs;
+// output is mapped defensively.
+async function adzunaViaApify(token) {
   const actor = process.env.APIFY_ADZUNA_ACTOR || 'powerbox~adzuna-jobs-search-scraper';
   const query = process.env.ADZUNA_QUERY || 'diversity inclusion';
   const countries = (process.env.ADZUNA_COUNTRIES || Object.keys(ADZUNA_DOMAINS).join(','))
@@ -387,15 +432,7 @@ async function fromAdzuna() {
     input = JSON.parse(process.env.APIFY_ADZUNA_INPUT);
   } else {
     const urls = countries.map((c) => `https://www.${ADZUNA_DOMAINS[c]}/search?q=${encodeURIComponent(query)}`);
-    // Provide the keys common Adzuna actors accept; unknown keys are ignored by
-    // actors whose schema doesn't lock them down.
-    input = {
-      startUrls: urls.map((url) => ({ url })),
-      searchUrls: urls,
-      maxItems,
-      maxJobs: maxItems,
-      fetchDescription: true
-    };
+    input = { startUrls: urls.map((url) => ({ url })), searchUrls: urls, maxItems, maxJobs: maxItems, fetchDescription: true };
   }
 
   const url =
@@ -439,7 +476,10 @@ const SOURCES = {
   himalayas: { fn: fromHimalayas, default: true },
   greenhouse: { fn: fromGreenhouse, default: !!process.env.GREENHOUSE_BOARDS },
   lever: { fn: fromLever, default: !!process.env.LEVER_BOARDS },
-  adzuna: { fn: fromAdzuna, default: !!realEnv('APIFY_TOKEN') }
+  adzuna: {
+    fn: fromAdzuna,
+    default: !!(realEnv('ADZUNA_APP_ID') && realEnv('ADZUNA_APP_KEY')) || !!realEnv('APIFY_TOKEN')
+  }
 };
 
 // ---- Orchestration ---------------------------------------------------------

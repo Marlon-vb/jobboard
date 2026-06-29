@@ -99,52 +99,42 @@ node scripts/scrape.js --source remotive,themuse   # only specific sources
 | `himalayas`   | no                     | Remote-only jobs API.                                        |
 | `greenhouse`  | no (opt-in env)        | Per-company boards via `GREENHOUSE_BOARDS=token1,token2`.    |
 | `lever`       | no (opt-in env)        | Per-company boards via `LEVER_BOARDS=handle1,handle2`.       |
-| `adzuna`      | yes (Apify token)      | Runs an Adzuna scraper **actor on Apify**; needs `APIFY_TOKEN`. |
+| `adzuna`      | yes (free)             | Adzuna's own API (App ID/Key) — or, as a fallback, an Apify actor (`APIFY_TOKEN`). |
 
 The six no-key sources run on a plain `npm run scrape`. The opt-in sources turn on
 automatically when their keys are present.
 
-#### Setting up Adzuna via Apify
+#### Setting up Adzuna (recommended — best European coverage)
 
-The `adzuna` source runs an **Adzuna scraper actor on [Apify](https://apify.com/)** and pulls
-the results — no Adzuna API key needed, just an Apify token.
+The `adzuna` source uses **Adzuna's own free API**, which keyword-searches whole European job
+markets and is the strongest source for genuinely DEI-titled roles.
 
-1. Create a free Apify account and copy your API token from
-   **https://console.apify.com/account/integrations**.
-2. Pick an Adzuna actor from the store: **https://apify.com/store?search=adzuna**
-   (e.g. `powerbox/adzuna-jobs-search-scraper`). Note its id — in the API the `/` becomes `~`.
-3. Copy `.env.example` to `.env` and add your token:
+1. Register for a free API account at **https://developer.adzuna.com/** and copy your
+   **App ID** and **App Key**.
+2. Copy `.env.example` to `.env` and paste them in:
 
    ```bash
    cp .env.example .env
    ```
    ```
-   APIFY_TOKEN=your_apify_token_here
+   ADZUNA_APP_ID=your_adzuna_app_id_here
+   ADZUNA_APP_KEY=your_adzuna_app_key_here
    ```
-4. Run the scraper — the Adzuna-via-Apify source now runs automatically:
+3. Run the scraper — Adzuna now runs automatically:
 
    ```bash
    npm run scrape
    ```
 
-**Choosing the actor & input.** By default it runs `powerbox~adzuna-jobs-search-scraper` and
-builds Adzuna search URLs for `diversity inclusion` across the European Adzuna sites
-(`gb, de, fr, nl, es, it, at, be, ch, pl`). To use a different actor or give it the exact input
-it expects, set these in `.env`:
+It queries `gb, de, fr, nl, es, it, at, be, ch, pl` for DEI keywords (`what_or`), most-recent
+first. Tune with `ADZUNA_QUERY` / `ADZUNA_COUNTRIES` in `.env`. The strict DEI title filter then
+keeps only real DEI roles. Your `.env` is git-ignored, so your keys stay local.
 
-```
-APIFY_ADZUNA_ACTOR=powerbox~adzuna-jobs-search-scraper
-APIFY_ADZUNA_INPUT={"startUrls":[{"url":"https://www.adzuna.co.uk/search?q=diversity%20inclusion"}],"maxItems":100}
-```
-
-`APIFY_ADZUNA_INPUT` is the most reliable knob — open your chosen actor on Apify, copy the JSON
-from its input editor, and paste it here. The scraper maps common output field names
-(`title`, `company`/`companyName`, `location`, `url`/`jobUrl`, `salary`, `description`, …)
-automatically, and the strict DEI title filter then keeps only real DEI roles. Your `.env` is
-git-ignored, so your token stays local.
-
-> Heads-up: Apify actors consume compute units (the free plan includes a monthly allowance).
-> `run-sync-get-dataset-items` waits up to ~5 min per run, so keep `maxItems` modest.
+**Alternative: Adzuna via Apify.** If you'd rather run an Adzuna scraper actor on
+[Apify](https://apify.com/) instead, leave `ADZUNA_APP_ID/KEY` unset and provide `APIFY_TOKEN`
+(plus optionally `APIFY_ADZUNA_ACTOR` and `APIFY_ADZUNA_INPUT` — the exact input JSON copied from
+your chosen actor's page). Output fields are mapped defensively. Note Apify actors consume compute
+units and the sync run waits up to ~5 min, so keep `APIFY_MAX_ITEMS` modest.
 
 The same `.env` enables the company-ATS sources:
 
