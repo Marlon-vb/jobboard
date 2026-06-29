@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DEI Jobs · Europe · Remote-friendly</title>
+    <meta
+      name="description"
+      content="Interactive job board for remote-friendly Diversity, Equity & Inclusion roles across Europe."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrap header-inner">
+        <div class="brand">
+          <span class="brand-mark">✦</span>
+          <div>
+            <h1>DEI&nbsp;Europe</h1>
+            <p class="tagline">Remote-friendly Diversity, Equity&nbsp;&amp; Inclusion roles</p>
+          </div>
+        </div>
+        <div class="header-actions">
+          <span id="data-status" class="data-status" title="When the listings were last refreshed"></span>
+          <button id="refresh-btn" class="btn btn-ghost" title="Pull fresh listings from live job APIs">
+            ⟳ Refresh live data
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <div class="searchbar">
+      <div class="wrap searchbar-inner">
+        <input
+          id="search"
+          type="search"
+          placeholder="Search title, company, skill…  e.g. ‘Head of Inclusion’, ‘Berlin’, ‘ERG’"
+          autocomplete="off"
+        />
+        <select id="sort" aria-label="Sort">
+          <option value="newest">Newest first</option>
+          <option value="company">Company A–Z</option>
+          <option value="title">Title A–Z</option>
+        </select>
+      </div>
+    </div>
+
+    <main class="wrap layout">
+      <aside class="filters" id="filters">
+        <div class="filters-head">
+          <h2>Filters</h2>
+          <button id="clear-filters" class="link-btn">Clear all</button>
+        </div>
+        <div class="filter-group" data-key="remote">
+          <h3>Work style</h3>
+          <div class="chips" id="facet-remote"></div>
+        </div>
+        <div class="filter-group" data-key="seniority">
+          <h3>Seniority</h3>
+          <div class="chips" id="facet-seniority"></div>
+        </div>
+        <div class="filter-group" data-key="country">
+          <h3>Location</h3>
+          <div class="chips" id="facet-country"></div>
+        </div>
+        <div class="filter-group" data-key="source">
+          <h3>Source</h3>
+          <div class="chips" id="facet-source"></div>
+        </div>
+      </aside>
+
+      <section class="results">
+        <div class="results-head">
+          <p id="results-count" class="results-count">Loading…</p>
+          <div id="active-pills" class="active-pills"></div>
+        </div>
+        <div id="job-list" class="job-list"></div>
+        <div id="empty" class="empty hidden">
+          <p>No roles match these filters.</p>
+          <button class="btn" id="empty-clear">Clear filters</button>
+        </div>
+      </section>
+    </main>
+
+    <div id="toast" class="toast hidden"></div>
+
+    <footer class="site-footer">
+      <div class="wrap">
+        <p>
+          Live data scraped from public job APIs (Remotive, Jobicy, Arbeitnow, RemoteOK) plus curated,
+          source-linked listings. Built for a focused European DEI job search.
+        </p>
+      </div>
+    </footer>
+
+    <script src="app.js"></script>
+  </body>
+</html>

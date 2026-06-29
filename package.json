@@ -1,0 +1,18 @@
+{
+  "name": "dei-europe-jobboard",
+  "version": "1.0.0",
+  "description": "Interactive job board for remote-friendly DEI (Diversity, Equity & Inclusion) roles across Europe, powered by live scraping of public job APIs.",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "scrape": "node scripts/scrape.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  },
+  "license": "MIT"
+}

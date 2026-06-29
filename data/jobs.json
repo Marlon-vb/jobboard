@@ -1,0 +1,333 @@
+{
+  "generatedAt": "2026-06-29T10:22:43.486Z",
+  "count": 16,
+  "sources": [
+    "remotive",
+    "jobicy",
+    "arbeitnow",
+    "remoteok"
+  ],
+  "jobs": [
+    {
+      "id": "seed-dileaders-board",
+      "title": "Browse all D&I, EDI & Chief Diversity Officer vacancies",
+      "company": "Diversity & Inclusion Leaders (job board)",
+      "location": "Europe / Remote",
+      "country": "Europe (regional)",
+      "remote": "Remote",
+      "seniority": "Mid",
+      "category": "Job board",
+      "tags": [
+        "job-board",
+        "EDI",
+        "CDO"
+      ],
+      "salary": "",
+      "url": "https://dileaders.com/jobs/",
+      "source": "curated",
+      "posted": "2026-06-28",
+      "description": "Specialist board listing Chief Diversity Officer, Head of Inclusion, D&I, I&D, DEI and EDI & Culture roles across Europe."
+    },
+    {
+      "id": "seed-personneltoday-board",
+      "title": "Browse Diversity & Inclusion jobs in Europe",
+      "company": "Personnel Today Jobs (job board)",
+      "location": "Europe",
+      "country": "Europe (regional)",
+      "remote": "Hybrid",
+      "seniority": "Mid",
+      "category": "Job board",
+      "tags": [
+        "job-board",
+        "Europe",
+        "D&I"
+      ],
+      "salary": "",
+      "url": "https://jobs.personneltoday.com/jobs/diversity-and-inclusion/europe/",
+      "source": "curated",
+      "posted": "2026-06-28",
+      "description": "European D&I job board curated by Personnel Today. Good source for fresh, country-specific listings."
+    },
+    {
+      "id": "seed-workingnomads-board",
+      "title": "Browse remote DEI jobs (worldwide, Europe-friendly)",
+      "company": "Working Nomads (job board)",
+      "location": "Remote — Worldwide",
+      "country": "Remote — Worldwide",
+      "remote": "Remote",
+      "seniority": "Mid",
+      "category": "Job board",
+      "tags": [
+        "job-board",
+        "remote",
+        "DEI"
+      ],
+      "salary": "",
+      "url": "https://www.workingnomads.com/remote-dei-jobs",
+      "source": "curated",
+      "posted": "2026-06-28",
+      "description": "Aggregates fully-remote DEI roles (DEI Specialist, DEI Manager, Diversity Consultant) open to European candidates."
+    },
+    {
+      "id": "seed-remotecom-dei",
+      "title": "Inclusion, Diversity, Equity & Allyship (IDEA) Partner",
+      "company": "Remote.com",
+      "location": "Remote — Europe",
+      "country": "Remote — Worldwide",
+      "remote": "Remote",
+      "seniority": "Senior",
+      "category": "People / DEI",
+      "tags": [
+        "fully-remote",
+        "IDEA",
+        "global-payroll"
+      ],
+      "salary": "",
+      "url": "https://remote.com/careers",
+      "source": "curated",
+      "posted": "2026-06-25",
+      "description": "Remote.com is a fully distributed company with an IDEA (Inclusion, Diversity, Equity & Allyship) function and hires across Europe."
+    },
+    {
+      "id": "seed-spotify-belonging",
+      "title": "Belonging & Inclusion Program Manager",
+      "company": "Spotify",
+      "location": "Remote — Europe (Work From Anywhere)",
+      "country": "Remote — Worldwide",
+      "remote": "Remote",
+      "seniority": "Senior",
+      "category": "People / DEI",
+      "tags": [
+        "work-from-anywhere",
+        "belonging",
+        "ERG"
+      ],
+      "salary": "",
+      "url": "https://www.lifeatspotify.com/jobs?q=inclusion",
+      "source": "curated",
+      "posted": "2026-06-22",
+      "description": "Spotify's Work From Anywhere policy supports fully flexible locations across Europe. Belonging & Inclusion roles sit within the People/HR org."
+    },
+    {
+      "id": "seed-gitlab-dib-partner",
+      "title": "Diversity, Inclusion & Belonging Partner (EMEA)",
+      "company": "GitLab",
+      "location": "Remote — Europe",
+      "country": "Remote — Worldwide",
+      "remote": "Remote",
+      "seniority": "Senior",
+      "category": "People / DEI",
+      "tags": [
+        "remote-first",
+        "DIB",
+        "EMEA",
+        "people"
+      ],
+      "salary": "",
+      "url": "https://about.gitlab.com/jobs/",
+      "source": "curated",
+      "posted": "2026-06-20",
+      "description": "GitLab is an all-remote company hiring across Europe with dedicated Diversity, Inclusion & Belonging staff and Team Member Resource Groups. Open the careers page and search 'diversity' / 'belonging'."
+    },
+    {
+      "id": "seed-booking-di",
+      "title": "Inclusion & Diversity Specialist",
+      "company": "Booking.com",
+      "location": "Amsterdam, Netherlands (Hybrid)",
+      "country": "Netherlands",
+      "remote": "Hybrid",
+      "seniority": "Mid",
+      "category": "People / DEI",
+      "tags": [
+        "travel-tech",
+        "hybrid",
+        "Amsterdam"
+      ],
+      "salary": "",
+      "url": "https://jobs.booking.com/booking/jobs?keyword=inclusion",
+      "source": "curated",
+      "posted": "2026-06-19",
+      "description": "Booking.com runs Inclusion & Diversity programs from its Amsterdam HQ with hybrid working."
+    },
+    {
+      "id": "seed-zalando-di-manager",
+      "title": "Diversity & Inclusion Manager",
+      "company": "Zalando",
+      "location": "Berlin, Germany (Hybrid)",
+      "country": "Germany",
+      "remote": "Hybrid",
+      "seniority": "Senior",
+      "category": "People / DEI",
+      "tags": [
+        "hybrid",
+        "fashion-tech",
+        "D&I"
+      ],
+      "salary": "",
+      "url": "https://jobs.zalando.com/en/jobs/?search=diversity",
+      "source": "curated",
+      "posted": "2026-06-18",
+      "description": "Zalando runs an 'inclusive by design' D&I program for talents, leaders and customers across Europe. Roles are typically Berlin-based with hybrid flexibility."
+    },
+    {
+      "id": "seed-deliveryhero-dei",
+      "title": "People & Diversity Partner",
+      "company": "Delivery Hero",
+      "location": "Berlin, Germany / Remote EMEA",
+      "country": "Germany",
+      "remote": "Hybrid",
+      "seniority": "Senior",
+      "category": "People / DEI",
+      "tags": [
+        "food-tech",
+        "EMEA",
+        "people"
+      ],
+      "salary": "",
+      "url": "https://careers.deliveryhero.com/global/en/search-results?keywords=diversity",
+      "source": "curated",
+      "posted": "2026-06-17",
+      "description": "Delivery Hero hires People & Diversity partners from its Berlin HQ with hybrid/remote flexibility across EMEA."
+    },
+    {
+      "id": "seed-sap-dei-lead",
+      "title": "Diversity, Equity & Inclusion Lead (EMEA)",
+      "company": "SAP",
+      "location": "Walldorf, Germany / Remote EMEA",
+      "country": "Germany",
+      "remote": "Hybrid",
+      "seniority": "Senior",
+      "category": "People / DEI",
+      "tags": [
+        "enterprise",
+        "EMEA",
+        "DEI"
+      ],
+      "salary": "",
+      "url": "https://jobs.sap.com/search/?q=diversity",
+      "source": "curated",
+      "posted": "2026-06-15",
+      "description": "SAP hires DEI specialists across its EMEA people organisation, with hybrid flexibility from German hubs and remote options."
+    },
+    {
+      "id": "seed-personio-di",
+      "title": "Diversity, Equity & Inclusion Specialist",
+      "company": "Personio",
+      "location": "Munich, Germany / Remote Europe",
+      "country": "Germany",
+      "remote": "Hybrid",
+      "seniority": "Mid",
+      "category": "People / DEI",
+      "tags": [
+        "HR-tech",
+        "remote-friendly",
+        "DEI"
+      ],
+      "salary": "",
+      "url": "https://www.personio.com/about-us/jobs/",
+      "source": "curated",
+      "posted": "2026-06-14",
+      "description": "HR software company hiring DEI specialists with remote-friendly options across Europe."
+    },
+    {
+      "id": "seed-wikimedia-dei",
+      "title": "Director of Diversity, Equity & Inclusion",
+      "company": "Wikimedia Foundation",
+      "location": "Remote — Worldwide (Europe-friendly)",
+      "country": "Remote — Worldwide",
+      "remote": "Remote",
+      "seniority": "Leadership",
+      "category": "People / DEI",
+      "tags": [
+        "nonprofit",
+        "fully-remote",
+        "global"
+      ],
+      "salary": "",
+      "url": "https://wikimediafoundation.org/about/jobs/",
+      "source": "curated",
+      "posted": "2026-06-12",
+      "description": "The Wikimedia Foundation is a fully-remote nonprofit that hires globally, including across Europe, for people and DEI leadership roles."
+    },
+    {
+      "id": "seed-n26-di",
+      "title": "Diversity & Inclusion Lead",
+      "company": "N26",
+      "location": "Berlin, Germany / Remote",
+      "country": "Germany",
+      "remote": "Remote",
+      "seniority": "Senior",
+      "category": "People / DEI",
+      "tags": [
+        "fintech",
+        "remote",
+        "Berlin"
+      ],
+      "salary": "",
+      "url": "https://n26.com/en/careers",
+      "source": "curated",
+      "posted": "2026-06-11",
+      "description": "Digital bank N26 hires D&I leads with remote options from its Berlin base."
+    },
+    {
+      "id": "seed-roche-global-head-di",
+      "title": "Global Head of Diversity & Inclusion",
+      "company": "Roche",
+      "location": "Basel, Switzerland",
+      "country": "Switzerland",
+      "remote": "Hybrid",
+      "seniority": "Leadership",
+      "category": "People / DEI",
+      "tags": [
+        "leadership",
+        "healthcare",
+        "global"
+      ],
+      "salary": "",
+      "url": "https://careers.roche.com/global/en/search-results?keywords=diversity",
+      "source": "curated",
+      "posted": "2026-06-10",
+      "description": "Senior leadership D&I role driving global strategy; requires extensive senior leadership experience. Based in Basel with broad European remit."
+    },
+    {
+      "id": "seed-mozilla-di",
+      "title": "Diversity & Inclusion Program Manager",
+      "company": "Mozilla",
+      "location": "Remote — Europe",
+      "country": "Remote — Worldwide",
+      "remote": "Remote",
+      "seniority": "Senior",
+      "category": "People / DEI",
+      "tags": [
+        "open-source",
+        "remote",
+        "program-management"
+      ],
+      "salary": "",
+      "url": "https://www.mozilla.org/en-US/careers/listings/?team=People",
+      "source": "curated",
+      "posted": "2026-06-08",
+      "description": "Mozilla hires remote roles across Europe and runs an established D&I program within its People team."
+    },
+    {
+      "id": "seed-hcwh-deib",
+      "title": "Head of Diversity, Equity, Inclusion & Belonging (DEIB)",
+      "company": "Health Care Without Harm",
+      "location": "Remote — Europe",
+      "country": "Remote — Worldwide",
+      "remote": "Remote",
+      "seniority": "Leadership",
+      "category": "Nonprofit / DEI",
+      "tags": [
+        "nonprofit",
+        "healthcare",
+        "DEIB"
+      ],
+      "salary": "",
+      "url": "https://noharm-europe.org/who-we-are/jobs",
+      "source": "curated",
+      "posted": "2026-06-05",
+      "description": "Drives DEIB values into all aspects of the organisation's culture and practice. Europe office hires remotely."
+    }
+  ]
+}
