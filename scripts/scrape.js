@@ -421,10 +421,11 @@ async function main() {
   };
   await writeFile(OUT_FILE, JSON.stringify(payload, null, 2));
   console.log(`✔ Wrote ${deduped.length} jobs to ${OUT_FILE}`);
-  if (filtered.length === 0) {
+  if (deduped.length === 0) {
     console.log(
-      '  (No live results this run — likely a blocked network. The board will ' +
-        'serve the curated seed data instead.)'
+      '  (No DEI roles matched this run. Often this is a blocked network — some job APIs reject\n' +
+        '   datacenter/proxy IPs. Try again from your own machine/home network, or scrape specific\n' +
+        '   sources, e.g.  node scripts/scrape.js --source remotive,themuse)'
     );
   }
 }

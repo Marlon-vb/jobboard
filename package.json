@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "scrape": "node scripts/scrape.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "test": "node scripts/test-filters.js"
   },
   "engines": {
     "node": ">=18"

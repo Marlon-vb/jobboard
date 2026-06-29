@@ -2,9 +2,14 @@
 
 An interactive job board focused on **remote-friendly Diversity, Equity & Inclusion (DEI) roles across Europe**.
 
-It pulls **real, live data** from several public job APIs, filters them down to DEI roles that are
-in Europe (or remote-worldwide, i.e. open to European candidates), and presents them in a fast,
-filterable UI. It ships with a curated, source-linked seed set so the board is never empty.
+It pulls **real, live data** from several public job APIs, keeps only **specific DEI job functions**
+that are in Europe (or remote-worldwide, i.e. open to European candidates), and presents them in a
+fast, filterable UI. **Every "Apply" link goes straight to the actual posting** — never to a job-board
+search page or aggregator.
+
+> Screenshots below are a UI preview populated with example DEI roles. On first run the board is
+> empty until you load live data (see [Quick start](#quick-start)) — by design, so it only ever
+> shows real, current postings.
 
 ![screenshot](docs/screenshot.png)
 
@@ -16,56 +21,69 @@ Light mode + the Favorites tab:
 
 ![light mode favorites](docs/favorites.png)
 
+First run, before loading live data — honest and empty by design:
+
+![first run](docs/first-run.png)
+
 ## Features
 
 - 🔎 **Live scraping** of many job sources — Remotive, Jobicy, Arbeitnow (Europe-focused), RemoteOK, The Muse, and Himalayas with **no API key**, plus opt-in Greenhouse / Lever company boards and Adzuna's country-by-country European search.
-- 🎯 **Smart filtering**: keeps only DEI roles (diversity, equity, inclusion, belonging, EDI, DEIB, ERG…) that are in Europe or open worldwide-remote.
+- 🎯 **Strict DEI matching**: a role is kept only when its **title or tags** carry an unambiguous DEI signal (diversity, inclusion, belonging, DEI, DEIB, D&I, EDI, anti-racism…). It deliberately **ignores job descriptions**, because nearly every posting contains diversity/equity boilerplate ("equal opportunity employer", "equity compensation") — matching on that is what floods boards with non-DEI roles. Bare "equity"/"equality"/"accessibility" are *not* matched alone for the same reason. See `lib/filters.js` and the tests.
+- 🔗 **Specific postings only**: each result links directly to its real job posting (the source API's canonical URL), never to a generic search/aggregator page.
 - 🧭 **Interactive UI**: full-text search, plus one-click facets for work style (Remote / Hybrid), seniority, country, and source. Sort by newest / company / title.
 - 🪟 **Detail drawer**: click any role to slide open a panel with the full spec grid (location, work style, seniority, salary, posted date…), highlights, and an "About this role & what's required" section, plus a direct apply link.
 - ✅ **Reviewed → Archive workflow**: check roles off as you look at them and they move from **Open roles** into the **Archive** tab. Your progress is saved on the device (localStorage), so it survives refreshes. Restore any role back to Open in one click.
 - ⭐ **Favorites tab**: star any role to save it to a dedicated **Favorites** tab (also persisted on the device). Independent of the archive, so you can shortlist and tick-off separately.
 - 🌗 **Light & dark mode**: a header toggle switches themes; your choice is remembered, and it respects your system preference on first visit.
 - 🎨 **Dark-glassmorphism design**: animated aurora backdrop, frosted translucent panels, and smooth micro-interactions.
-- ♻️ **Refresh button** re-runs the scraper on demand from the browser.
-- 🌱 **Curated seed data**: 16 hand-picked, source-linked DEI roles/boards (GitLab, Spotify, SAP, Zalando, Roche, Wikimedia, Remote.com, and specialist boards like Diversity & Inclusion Leaders) so it works out of the box.
+- ♻️ **Refresh button** re-runs the scraper on demand from the browser (and a "Load live DEI roles" button on the first-run empty state).
 - 🪶 **Tiny footprint**: one dependency (Express), plain HTML/CSS/JS frontend, no build step.
 
 ## Quick start
 
 ```bash
 npm install        # installs express
-npm run scrape     # pull fresh live listings into data/jobs.json (see note below)
+npm run scrape     # pull live DEI postings into data/jobs.json
 npm start          # serve the board at http://localhost:3000
 ```
 
-Then open **http://localhost:3000**.
+Then open **http://localhost:3000**. (You can also skip `npm run scrape` and click **Load live
+DEI roles** on the board.)
 
-> **Note on the scraper & networks.** The job APIs above are reachable from a normal machine or
-> home network. Some restricted environments (corporate proxies, CI sandboxes) block outbound calls
-> to them. The scraper is resilient: if a source is unreachable it logs a warning, skips it, and the
-> board falls back to the curated seed data — so you always see real DEI roles. Run `npm run scrape`
-> on your own machine to fetch fresh live listings.
+> **First run is empty on purpose.** There is no bundled/curated dataset — the board shows *only*
+> live, specific DEI postings. Run `npm run scrape` (or click the load button) to populate it.
+>
+> **Networks.** These APIs are reachable from a normal machine or home network. Some restricted
+> environments (corporate proxies, CI sandboxes, datacenter IPs) block them. The scraper is
+> resilient: if a source is unreachable it logs a warning and skips it. If *all* sources are
+> blocked you'll get an empty board with a clear message — run it again from your own network.
+
+## Tests
+
+```bash
+npm test           # asserts the DEI filter keeps real DEI titles and rejects non-DEI roles
+```
 
 ## How it works
 
 ```
 scripts/scrape.js   →  fetches each source, normalizes to one schema,
                        filters (DEI role) AND (Europe or remote), dedupes,
-                       merges with the curated seed, writes data/jobs.json
-lib/filters.js      →  the matching rules (DEI keywords, European locations,
-                       seniority + remote classification) — shared & testable
+                       writes data/jobs.json
+lib/filters.js      →  the matching rules (strict DEI title/tag match, European
+                       locations, seniority + remote classification) — testable
+scripts/test-filters.js → unit tests for the DEI matcher (npm test)
 server.js           →  Express: serves /public, exposes /api/jobs, /api/meta,
                        and POST /api/refresh (re-runs the scraper)
 public/             →  the interactive frontend (index.html, app.js, styles.css)
-data/seed.json      →  curated, source-linked real listings (fallback + base)
-data/jobs.json      →  generated output that the board reads
+data/jobs.json      →  generated output the board reads (git-ignored; created
+                       by `npm run scrape`)
 ```
 
 ### Scraper usage
 
 ```bash
-npm run scrape                      # scrape all default sources, merge with seed
-node scripts/scrape.js --fresh      # live sources only, ignore the seed
+npm run scrape                      # scrape all default sources
 node scripts/scrape.js --source remotive,themuse   # only specific sources
 ```
 

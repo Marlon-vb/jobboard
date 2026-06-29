@@ -82,9 +82,12 @@ function queryString() {
 // ---- Facets + pills ----
 async function loadMeta() {
   const meta = await fetch('/api/meta').then((r) => r.json());
-  els.status.textContent = meta.generatedAt
-    ? `${meta.total} roles · updated ${timeAgo(meta.generatedAt)}`
-    : `${meta.total} curated roles`;
+  els.status.textContent =
+    meta.total === 0
+      ? 'No roles loaded yet'
+      : meta.generatedAt
+      ? `${meta.total} roles · updated ${timeAgo(meta.generatedAt)}`
+      : `${meta.total} roles`;
   for (const f of FACETS) renderFacet(f, meta[f.metaKey] || []);
 }
 
@@ -161,7 +164,19 @@ async function loadJobs() {
   els.count.innerHTML = `<strong>${shown.length}</strong> ${noun} · ${data.total} total`;
   els.list.innerHTML = shown.map(jobCard).join('');
 
-  if (shown.length === 0) {
+  if (data.total === 0) {
+    // First run: no live data scraped yet. Be honest and offer to load it.
+    els.list.innerHTML = '';
+    els.empty.classList.remove('hidden');
+    els.empty.innerHTML = `
+      <div class="big">📡</div>
+      <p><strong>No live roles loaded yet.</strong></p>
+      <p>This board only shows <em>specific, real DEI postings</em> pulled live from public job
+      APIs — no aggregator links, no filler. Load them now, or run <code>npm run scrape</code>.</p>
+      <button class="btn" id="load-live">Load live DEI roles</button>`;
+    const lb = $('load-live');
+    if (lb) lb.addEventListener('click', refreshLive);
+  } else if (shown.length === 0) {
     const emptyMsg = {
       archive: `<div class="big">🗂️</div><p>No archived roles yet. Mark roles as reviewed and they’ll land here.</p>`,
       favorites: `<div class="big">★</div><p>No favorites yet. Tap the star on a role to save it here.</p>`,
@@ -352,13 +367,17 @@ els.themeToggle.addEventListener('click', () => {
 });
 syncThemeIcon();
 
-els.refresh.addEventListener('click', async () => {
+async function refreshLive() {
   els.refresh.disabled = true;
   els.refresh.textContent = '⟳ Refreshing…';
-  toast('Pulling fresh listings from live job APIs…');
+  toast('Pulling specific DEI roles from live job APIs… this can take a moment.');
   try {
     const res = await fetch('/api/refresh', { method: 'POST' }).then((r) => r.json());
-    toast(res.ok ? 'Live data refreshed.' : 'Refresh ran but live sources were unreachable — showing existing data.');
+    toast(
+      res.ok
+        ? 'Live data refreshed.'
+        : 'Refresh ran but live sources were unreachable (some APIs block datacenter IPs). Try again from your own network.'
+    );
   } catch {
     toast('Could not reach the server to refresh.');
   } finally {
@@ -367,7 +386,8 @@ els.refresh.addEventListener('click', async () => {
     await loadMeta();
     await loadJobs();
   }
-});
+}
+els.refresh.addEventListener('click', refreshLive);
 
 // ---- Init ----
 loadMeta();

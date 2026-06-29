@@ -528,6 +528,18 @@ body {
   font-size: 34px;
   margin-bottom: 6px;
 }
+.empty p {
+  max-width: 460px;
+  margin: 6px auto;
+  line-height: 1.55;
+}
+.empty code {
+  background: var(--fill);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 1px 6px;
+  font-size: 12.5px;
+}
 .empty .btn {
   margin-top: 14px;
 }
