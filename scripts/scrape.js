@@ -66,6 +66,36 @@ async function getJson(url, { timeout = 20000 } = {}) {
   }
 }
 
+async function postJson(url, body, { timeout = 240000 } = {}) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), timeout);
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'User-Agent': UA, 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(body),
+      signal: ctrl.signal
+    });
+    if (!res.ok) {
+      const txt = await res.text().catch(() => '');
+      throw new Error(`HTTP ${res.status}${txt ? ` — ${txt.slice(0, 160)}` : ''}`);
+    }
+    return await res.json();
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+// Return the first present, non-empty value among several candidate keys —
+// lets one mapping work across Apify actors that name fields differently.
+function pickField(obj, keys) {
+  for (const k of keys) {
+    const v = obj?.[k];
+    if (v !== undefined && v !== null && v !== '') return v;
+  }
+  return undefined;
+}
+
 function stableId(source, raw) {
   const base = `${source}:${raw}`;
   let h = 0;
@@ -305,55 +335,84 @@ async function fromLever() {
   return out;
 }
 
-// Adzuna country endpoints that are in Europe (Adzuna has no Ireland/Nordics
-// endpoints, so we don't query those — a bad code returns an error).
-const ADZUNA_EU_COUNTRIES = ['gb', 'de', 'fr', 'nl', 'es', 'it', 'at', 'be', 'ch', 'pl'];
+// Adzuna country -> Adzuna site domain, used to build search URLs for the
+// Apify actor's default input. (Adzuna has no Ireland/Nordics sites.)
+const ADZUNA_DOMAINS = {
+  gb: 'adzuna.co.uk',
+  de: 'adzuna.de',
+  fr: 'adzuna.fr',
+  nl: 'adzuna.nl',
+  es: 'adzuna.es',
+  it: 'adzuna.it',
+  at: 'adzuna.at',
+  be: 'adzuna.be',
+  ch: 'adzuna.ch',
+  pl: 'adzuna.pl'
+};
 
 async function fromAdzuna() {
-  // Adzuna: real, country-specific European search. Free tier needs an app id
-  // + key (https://developer.adzuna.com). Set ADZUNA_APP_ID / ADZUNA_APP_KEY in
-  // your .env. Queries each European country endpoint with DEI keywords; the
-  // strict DEI title filter then keeps only genuine DEI roles.
-  const id = process.env.ADZUNA_APP_ID;
-  const key = process.env.ADZUNA_APP_KEY;
-  if (!id || !key) throw new Error('set ADZUNA_APP_ID and ADZUNA_APP_KEY (e.g. in .env) to enable Adzuna');
+  // Adzuna via an Apify actor (instead of Adzuna's own API). Set APIFY_TOKEN in
+  // your .env. The actor and its input are overridable so you can point this at
+  // whichever Adzuna actor you pick from the Apify Store:
+  //   APIFY_ADZUNA_ACTOR  — actor id, e.g. "powerbox~adzuna-jobs-search-scraper"
+  //   APIFY_ADZUNA_INPUT  — raw JSON input for that actor (copy from its page)
+  // If APIFY_ADZUNA_INPUT is unset we build a sensible default that searches the
+  // European Adzuna sites for DEI terms. Output field names vary by actor, so we
+  // map defensively. The strict DEI title filter still trims to real DEI roles.
+  const token = process.env.APIFY_TOKEN;
+  if (!token) throw new Error('set APIFY_TOKEN (e.g. in .env) to enable the Apify Adzuna source');
 
-  const countries = (process.env.ADZUNA_COUNTRIES || ADZUNA_EU_COUNTRIES.join(','))
+  const actor = process.env.APIFY_ADZUNA_ACTOR || 'powerbox~adzuna-jobs-search-scraper';
+  const query = process.env.ADZUNA_QUERY || 'diversity inclusion';
+  const countries = (process.env.ADZUNA_COUNTRIES || Object.keys(ADZUNA_DOMAINS).join(','))
     .split(',')
     .map((s) => s.trim().toLowerCase())
-    .filter(Boolean);
-  const what = encodeURIComponent('diversity inclusion equity belonging dei');
+    .filter((c) => ADZUNA_DOMAINS[c]);
+  const maxItems = Number(process.env.APIFY_MAX_ITEMS || 200);
 
-  const out = [];
-  for (const c of countries) {
-    const url =
-      `https://api.adzuna.com/v1/api/jobs/${c}/search/1?app_id=${id}&app_key=${key}` +
-      `&results_per_page=50&what_or=${what}&max_days_old=45&sort_by=date&content-type=application/json`;
-    let data;
-    try {
-      data = await getJson(url);
-    } catch (e) {
-      console.warn(`    · adzuna ${c.toUpperCase()}: ${e.message} (skipped)`);
-      continue; // one bad country shouldn't kill the whole source
-    }
-    for (const j of data.results || []) {
-      out.push({
-        source: 'adzuna',
-        rawId: j.id,
-        title: clean(j.title || ''),
-        company: j.company?.display_name || 'Unknown',
-        location: j.location?.display_name || c.toUpperCase(),
-        category: j.category?.label || '',
-        tags: [c.toUpperCase()],
-        url: j.redirect_url,
-        posted: j.created,
-        salary: j.salary_min ? `${Math.round(j.salary_min)}-${Math.round(j.salary_max || j.salary_min)}` : '',
-        remoteFlag: /remote/i.test(`${j.title} ${j.description || ''}`),
-        description: clean(j.description || '')
-      });
-    }
+  let input;
+  if (process.env.APIFY_ADZUNA_INPUT) {
+    input = JSON.parse(process.env.APIFY_ADZUNA_INPUT);
+  } else {
+    const urls = countries.map((c) => `https://www.${ADZUNA_DOMAINS[c]}/search?q=${encodeURIComponent(query)}`);
+    // Provide the keys common Adzuna actors accept; unknown keys are ignored by
+    // actors whose schema doesn't lock them down.
+    input = {
+      startUrls: urls.map((url) => ({ url })),
+      searchUrls: urls,
+      maxItems,
+      maxJobs: maxItems,
+      fetchDescription: true
+    };
   }
-  return out;
+
+  const url =
+    `https://api.apify.com/v2/acts/${actor}/run-sync-get-dataset-items` +
+    `?token=${encodeURIComponent(token)}&clean=true&format=json`;
+  const items = await postJson(url, input);
+  const rows = Array.isArray(items) ? items : items?.items || [];
+
+  return rows.map((j) => {
+    let loc = pickField(j, ['location', 'locationName', 'jobLocation', 'area', 'city', 'region']);
+    if (loc && typeof loc === 'object') loc = loc.display_name || loc.name || (Array.isArray(loc) ? loc.join(', ') : '');
+    const salary = pickField(j, ['salary', 'salaryText', 'salaryRange', 'salary_min']);
+    return {
+      source: 'adzuna',
+      rawId: pickField(j, ['id', 'jobId', 'adRef', 'slug', 'url', 'jobUrl']),
+      title: clean(pickField(j, ['title', 'jobTitle', 'position', 'name']) || ''),
+      company: pickField(j, ['company', 'companyName', 'company_name', 'employer', 'companyDisplayName']) || 'Unknown',
+      location: typeof loc === 'string' ? loc : '',
+      category: pickField(j, ['category', 'categoryLabel', 'sector']) || '',
+      tags: [],
+      url: pickField(j, ['url', 'jobUrl', 'link', 'redirectUrl', 'redirect_url', 'applyUrl', 'externalUrl', 'adRef']),
+      posted: pickField(j, ['created', 'datePosted', 'postedDate', 'date', 'publishedAt']) || '',
+      salary: salary != null ? String(salary) : '',
+      remoteFlag: /remote/i.test(
+        `${pickField(j, ['title']) || ''} ${pickField(j, ['description', 'descriptionText', 'snippet']) || ''}`
+      ),
+      description: clean(pickField(j, ['description', 'descriptionText', 'snippet', 'jobDescription']) || '')
+    };
+  });
 }
 
 // Registry. `default` controls whether a source runs on a plain `npm run scrape`.
@@ -368,7 +427,7 @@ const SOURCES = {
   himalayas: { fn: fromHimalayas, default: true },
   greenhouse: { fn: fromGreenhouse, default: !!process.env.GREENHOUSE_BOARDS },
   lever: { fn: fromLever, default: !!process.env.LEVER_BOARDS },
-  adzuna: { fn: fromAdzuna, default: !!(process.env.ADZUNA_APP_ID && process.env.ADZUNA_APP_KEY) }
+  adzuna: { fn: fromAdzuna, default: !!process.env.APIFY_TOKEN }
 };
 
 // ---- Orchestration ---------------------------------------------------------
