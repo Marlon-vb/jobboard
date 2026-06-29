@@ -18,6 +18,10 @@ const REVIEW_KEY = 'dei.reviewed.v1';
 const reviewed = new Set(JSON.parse(localStorage.getItem(REVIEW_KEY) || '[]'));
 const saveReviewed = () => localStorage.setItem(REVIEW_KEY, JSON.stringify([...reviewed]));
 
+const FAV_KEY = 'dei.favorites.v1';
+const favorites = new Set(JSON.parse(localStorage.getItem(FAV_KEY) || '[]'));
+const saveFavorites = () => localStorage.setItem(FAV_KEY, JSON.stringify([...favorites]));
+
 // Cache of the jobs currently rendered, by id, so the drawer has full data.
 let jobIndex = new Map();
 
@@ -33,9 +37,11 @@ const els = {
   refresh: $('refresh-btn'),
   toast: $('toast'),
   countOpen: $('count-open'),
+  countFavorites: $('count-favorites'),
   countArchive: $('count-archive'),
   overlay: $('overlay'),
-  drawer: $('drawer')
+  drawer: $('drawer'),
+  themeToggle: $('theme-toggle')
 };
 
 const FACETS = [
@@ -103,16 +109,22 @@ function renderPills() {
 // ---- Cards ----
 function jobCard(j) {
   const isRev = reviewed.has(j.id);
+  const isFav = favorites.has(j.id);
   const tags = (j.tags || []).slice(0, 4).map((t) => `<span class="tag">${esc(t)}</span>`).join('');
   const toggleLabel = state.tab === 'archive' ? '↺ Restore' : isRev ? '✓ Reviewed' : '○ Mark reviewed';
   return `
-    <article class="job-card ${isRev ? 'reviewed' : ''}" data-id="${esc(j.id)}">
+    <article class="job-card ${isRev ? 'reviewed' : ''} ${isFav ? 'favorite' : ''}" data-id="${esc(j.id)}">
       <div class="job-top">
         <div>
           <h3 class="job-title">${esc(j.title)}</h3>
           <span class="job-company">${esc(j.company)}</span>
         </div>
-        <button class="review-toggle ${isRev ? 'on' : ''}" data-review="${esc(j.id)}">${toggleLabel}</button>
+        <div class="card-actions">
+          <button class="icon-toggle ${isFav ? 'on' : ''}" data-fav="${esc(j.id)}" title="${
+            isFav ? 'Remove from favorites' : 'Save to favorites'
+          }" aria-label="Favorite">${isFav ? '★' : '☆'}</button>
+          <button class="review-toggle ${isRev ? 'on' : ''}" data-review="${esc(j.id)}">${toggleLabel}</button>
+        </div>
       </div>
       <div class="job-meta">
         <span class="tag remote">📍 ${esc(j.location)}</span>
@@ -138,19 +150,25 @@ async function loadJobs() {
 
   const open = data.jobs.filter((j) => !reviewed.has(j.id));
   const archived = data.jobs.filter((j) => reviewed.has(j.id));
+  const favs = data.jobs.filter((j) => favorites.has(j.id));
   els.countOpen.textContent = open.length;
   els.countArchive.textContent = archived.length;
+  els.countFavorites.textContent = favs.length;
 
-  const shown = state.tab === 'archive' ? archived : open;
-  els.count.innerHTML = `<strong>${shown.length}</strong> ${state.tab === 'archive' ? 'archived' : 'open'} · ${data.total} total`;
+  const byTab = { open, archive: archived, favorites: favs };
+  const noun = { open: 'open', archive: 'archived', favorites: 'favorited' }[state.tab];
+  const shown = byTab[state.tab] || open;
+  els.count.innerHTML = `<strong>${shown.length}</strong> ${noun} · ${data.total} total`;
   els.list.innerHTML = shown.map(jobCard).join('');
 
   if (shown.length === 0) {
+    const emptyMsg = {
+      archive: `<div class="big">🗂️</div><p>No archived roles yet. Mark roles as reviewed and they’ll land here.</p>`,
+      favorites: `<div class="big">★</div><p>No favorites yet. Tap the star on a role to save it here.</p>`,
+      open: `<div class="big">🔍</div><p>No open roles match these filters.</p><button class="btn" id="empty-clear">Clear filters</button>`
+    };
     els.empty.classList.remove('hidden');
-    els.empty.innerHTML =
-      state.tab === 'archive'
-        ? `<div class="big">🗂️</div><p>No archived roles yet. Mark roles as reviewed and they’ll land here.</p>`
-        : `<div class="big">🔍</div><p>No open roles match these filters.</p><button class="btn" id="empty-clear">Clear filters</button>`;
+    els.empty.innerHTML = emptyMsg[state.tab] || emptyMsg.open;
     const ec = $('empty-clear');
     if (ec) ec.addEventListener('click', clearAll);
   } else {
@@ -189,6 +207,7 @@ function openDrawer(id) {
     j.description || 'Full description is on the listing — open “View & apply” to read the requirements and apply.';
 
   updateArchiveBtn(id);
+  updateFavBtn(id);
   els.overlay.classList.remove('hidden');
   els.drawer.classList.add('show');
   els.drawer.dataset.id = id;
@@ -206,6 +225,27 @@ function closeDrawer() {
 function updateArchiveBtn(id) {
   const btn = $('drawer-archive');
   btn.textContent = reviewed.has(id) ? '↺ Restore to open' : '✓ Mark reviewed & archive';
+}
+
+function updateFavBtn(id) {
+  const btn = $('drawer-fav');
+  const on = favorites.has(id);
+  btn.textContent = on ? '★' : '☆';
+  btn.classList.toggle('on', on);
+  btn.title = on ? 'Remove from favorites' : 'Save to favorites';
+}
+
+function toggleFavorite(id) {
+  if (favorites.has(id)) {
+    favorites.delete(id);
+    toast('Removed from favorites.');
+  } else {
+    favorites.add(id);
+    toast('★ Saved to favorites.');
+  }
+  saveFavorites();
+  if (els.drawer.dataset.id === id) updateFavBtn(id);
+  loadJobs();
 }
 
 // ---- Reviewed / archive ----
@@ -261,6 +301,11 @@ document.querySelectorAll('.tab').forEach((t) =>
 
 // Delegated clicks on the results area.
 els.list.addEventListener('click', (e) => {
+  const favBtn = e.target.closest('[data-fav]');
+  if (favBtn) {
+    e.stopPropagation();
+    return toggleFavorite(favBtn.dataset.fav);
+  }
   const reviewBtn = e.target.closest('[data-review]');
   if (reviewBtn) {
     e.stopPropagation();
@@ -288,9 +333,24 @@ $('clear-filters').addEventListener('click', clearAll);
 $('drawer-close').addEventListener('click', closeDrawer);
 els.overlay.addEventListener('click', closeDrawer);
 $('drawer-archive').addEventListener('click', () => toggleReviewed(els.drawer.dataset.id));
+$('drawer-fav').addEventListener('click', () => toggleFavorite(els.drawer.dataset.id));
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') closeDrawer();
 });
+
+// Theme toggle
+function syncThemeIcon() {
+  const light = document.documentElement.getAttribute('data-theme') === 'light';
+  els.themeToggle.textContent = light ? '☀️' : '🌙';
+  els.themeToggle.title = light ? 'Switch to dark' : 'Switch to light';
+}
+els.themeToggle.addEventListener('click', () => {
+  const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('dei.theme', next);
+  syncThemeIcon();
+});
+syncThemeIcon();
 
 els.refresh.addEventListener('click', async () => {
   els.refresh.disabled = true;

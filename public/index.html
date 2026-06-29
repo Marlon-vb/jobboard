@@ -14,6 +14,14 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="styles.css" />
+    <script>
+      // Set the theme before first paint to avoid a flash.
+      (function () {
+        var t = localStorage.getItem('dei.theme');
+        if (!t) t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+      })();
+    </script>
   </head>
   <body>
     <div class="aurora" aria-hidden="true">
@@ -31,6 +39,9 @@
         </div>
         <div class="header-actions">
           <span id="data-status" class="data-status" title="When the listings were last refreshed"></span>
+          <button id="theme-toggle" class="theme-toggle" title="Toggle light / dark" aria-label="Toggle theme">
+            🌙
+          </button>
           <button id="refresh-btn" class="btn btn-ghost" title="Pull fresh listings from live job APIs">
             ⟳ Refresh live data
           </button>
@@ -84,6 +95,9 @@
             <button class="tab active" data-tab="open" role="tab">
               Open roles <span class="badge" id="count-open">0</span>
             </button>
+            <button class="tab" data-tab="favorites" role="tab">
+              ★ Favorites <span class="badge" id="count-favorites">0</span>
+            </button>
             <button class="tab" data-tab="archive" role="tab">
               Archive <span class="badge" id="count-archive">0</span>
             </button>
@@ -116,6 +130,7 @@
         </div>
       </div>
       <div class="drawer-foot">
+        <button id="drawer-fav" class="icon-toggle" title="Save to favorites" aria-label="Favorite">☆</button>
         <a id="drawer-apply" class="btn" target="_blank" rel="noopener noreferrer">View &amp; apply ↗</a>
         <button id="drawer-archive" class="btn-archive"></button>
       </div>

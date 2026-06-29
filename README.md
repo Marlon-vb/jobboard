@@ -8,9 +8,13 @@ filterable UI. It ships with a curated, source-linked seed set so the board is n
 
 ![screenshot](docs/screenshot.png)
 
-Click any role to open the detail drawer; check it off to archive it:
+Click any role to open the detail drawer; check it off to archive it, or star it to favorite it:
 
 ![detail drawer](docs/drawer.png)
+
+Light mode + the Favorites tab:
+
+![light mode favorites](docs/favorites.png)
 
 ## Features
 
@@ -19,6 +23,8 @@ Click any role to open the detail drawer; check it off to archive it:
 - 🧭 **Interactive UI**: full-text search, plus one-click facets for work style (Remote / Hybrid), seniority, country, and source. Sort by newest / company / title.
 - 🪟 **Detail drawer**: click any role to slide open a panel with the full spec grid (location, work style, seniority, salary, posted date…), highlights, and an "About this role & what's required" section, plus a direct apply link.
 - ✅ **Reviewed → Archive workflow**: check roles off as you look at them and they move from **Open roles** into the **Archive** tab. Your progress is saved on the device (localStorage), so it survives refreshes. Restore any role back to Open in one click.
+- ⭐ **Favorites tab**: star any role to save it to a dedicated **Favorites** tab (also persisted on the device). Independent of the archive, so you can shortlist and tick-off separately.
+- 🌗 **Light & dark mode**: a header toggle switches themes; your choice is remembered, and it respects your system preference on first visit.
 - 🎨 **Dark-glassmorphism design**: animated aurora backdrop, frosted translucent panels, and smooth micro-interactions.
 - ♻️ **Refresh button** re-runs the scraper on demand from the browser.
 - 🌱 **Curated seed data**: 16 hand-picked, source-linked DEI roles/boards (GitLab, Spotify, SAP, Zalando, Roche, Wikimedia, Remote.com, and specialist boards like Diversity & Inclusion Leaders) so it works out of the box.
