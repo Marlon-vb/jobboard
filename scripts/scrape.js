@@ -216,21 +216,28 @@ async function fromTheMuse() {
 
 async function fromHimalayas() {
   // Himalayas: open remote-jobs API (no key). All roles are remote.
+  // locationRestrictions is an array of OBJECTS {name, alpha2, slug} — if there
+  // are none, the role is open worldwide (which includes Europe).
   const data = await getJson('https://himalayas.app/jobs/api?limit=100');
-  return (data.jobs || []).map((j) => ({
-    source: 'himalayas',
-    rawId: j.guid || `${j.companyName}-${j.title}`,
-    title: j.title,
-    company: j.companyName,
-    location: (j.locationRestrictions || []).join(', ') || 'Remote — Worldwide',
-    category: (j.categories || []).join(', '),
-    tags: [].concat(j.seniority || [], j.categories || []),
-    url: j.applicationLink || j.guid,
-    posted: typeof j.pubDate === 'number' ? new Date(j.pubDate * 1000).toISOString() : j.pubDate || '',
-    salary: j.minSalary ? `${j.minSalary}-${j.maxSalary || j.minSalary}` : '',
-    remoteFlag: true,
-    description: clean(j.excerpt || j.description || '')
-  }));
+  return (data.jobs || []).map((j) => {
+    const locs = (j.locationRestrictions || [])
+      .map((l) => (typeof l === 'string' ? l : l && l.name))
+      .filter(Boolean);
+    return {
+      source: 'himalayas',
+      rawId: j.guid || `${j.companyName}-${j.title}`,
+      title: j.title,
+      company: j.companyName || 'Unknown',
+      location: locs.join(', ') || 'Worldwide',
+      category: (j.categories || []).join(', '),
+      tags: [].concat(j.seniority || [], j.categories || []),
+      url: j.applicationLink || j.guid,
+      posted: typeof j.pubDate === 'number' ? new Date(j.pubDate * 1000).toISOString() : j.pubDate || '',
+      salary: j.minSalary ? `${j.minSalary}-${j.maxSalary || j.minSalary}` : '',
+      remoteFlag: true,
+      description: clean(j.excerpt || j.description || '')
+    };
+  });
 }
 
 async function fromGreenhouse() {

@@ -3,7 +3,7 @@
 // These guard the core promise: only specific DEI job functions get through,
 // and roles that merely mention diversity/equity in boilerplate do not.
 
-import { isDeiRole } from '../lib/filters.js';
+import { isDeiRole, isEuropeOrRemote } from '../lib/filters.js';
 
 // Real DEI job functions — these MUST match.
 const shouldMatch = [
@@ -34,6 +34,25 @@ const shouldNotMatch = [
   { title: 'Backend Engineer III', tags: ['golang', 'fintech'] }
 ];
 
+// Europe / remote location filter. extra = `${title} ${tags}`.
+const europeOk = [
+  ['Berlin, Germany', ''],
+  ['Remote — Europe', ''],
+  ['EMEA', ''],
+  ['Worldwide', ''],
+  ['Anywhere', ''],
+  ['Remote', 'DEI Manager EMEA'], // Europe signalled in title
+  ['London, United Kingdom', '']
+];
+const europeNo = [
+  ['United States', 'Remote Outpatient Neurologist'], // "eu" in neurologist must NOT match
+  ['United States', 'Strategic Account Manager'],
+  ['Remote', 'Strategic Account Manager Sales'], // bare remote, no Europe signal
+  ['New York, NY', ''],
+  ['San Francisco', 'Global mindset'], // "global" only counts from location, not title
+  ['Canada', '']
+];
+
 let failures = 0;
 for (const j of shouldMatch) {
   if (!isDeiRole(j)) {
@@ -47,9 +66,22 @@ for (const j of shouldNotMatch) {
     failures++;
   }
 }
+for (const [loc, extra] of europeOk) {
+  if (!isEuropeOrRemote(loc, extra)) {
+    console.error(`✗ Europe FALSE NEGATIVE: "${loc}" / "${extra}"`);
+    failures++;
+  }
+}
+for (const [loc, extra] of europeNo) {
+  if (isEuropeOrRemote(loc, extra)) {
+    console.error(`✗ Europe FALSE POSITIVE: "${loc}" / "${extra}"`);
+    failures++;
+  }
+}
 
 if (failures) {
   console.error(`\n${failures} test(s) failed.`);
   process.exit(1);
 }
-console.log(`✓ all ${shouldMatch.length + shouldNotMatch.length} DEI-filter tests passed`);
+const total = shouldMatch.length + shouldNotMatch.length + europeOk.length + europeNo.length;
+console.log(`✓ all ${total} filter tests passed (DEI + Europe)`);
