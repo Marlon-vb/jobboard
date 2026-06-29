@@ -111,6 +111,30 @@ function stableId(source, raw) {
   return `${source}-${(h >>> 0).toString(36)}`;
 }
 
+// Approximate FX rates to EUR (updated periodically; good enough for comparison).
+const FX_TO_EUR = {
+  EUR: 1, GBP: 1.17, CHF: 1.05, PLN: 0.23, SEK: 0.088, NOK: 0.086,
+  DKK: 0.134, USD: 0.92, CAD: 0.68, AUD: 0.61
+};
+
+// Format a salary range as an approximate EUR figure, e.g. "€45k–€60k".
+// Returns '' for unknown currencies or implausible (hourly/tiny) numbers, so we
+// never show a misleading €. Non-EUR amounts are prefixed with "≈".
+function formatEurSalary(min, max, currency) {
+  const lo0 = Number(min) || 0;
+  const hi0 = Number(max) || 0;
+  if (!lo0 && !hi0) return '';
+  const cur = String(currency || 'EUR').toUpperCase();
+  const rate = FX_TO_EUR[cur];
+  if (!rate) return '';
+  const lo = (lo0 || hi0) * rate;
+  const hi = (hi0 || lo0) * rate;
+  if (hi < 5000) return ''; // looks hourly/monthly or junk — skip rather than mislead
+  const k = (n) => `€${Math.round(n / 1000)}k`;
+  const approx = cur === 'EUR' ? '' : '≈';
+  return Math.round(lo / 1000) !== Math.round(hi / 1000) ? `${approx}${k(lo)}–${k(hi)}` : `${approx}${k(lo)}`;
+}
+
 function decodeEntities(s = '') {
   return s
     .replace(/&lt;/g, '<')
@@ -176,7 +200,9 @@ async function fromJobicy() {
     tags: [].concat(j.jobType || [], j.jobLevel || []),
     url: j.url,
     posted: j.pubDate,
-    salary: j.annualSalaryMin ? `${j.annualSalaryMin}-${j.annualSalaryMax} ${j.salaryCurrency || ''}` : '',
+    salaryMin: j.annualSalaryMin,
+    salaryMax: j.annualSalaryMax,
+    salaryCurrency: j.salaryCurrency || 'USD',
     remoteFlag: true,
     description: clean(j.jobExcerpt || j.jobDescription || '')
   }));
@@ -221,7 +247,9 @@ async function fromRemoteOk() {
     tags: j.tags || [],
     url: j.url,
     posted: j.date,
-    salary: j.salary_min ? `${j.salary_min}-${j.salary_max} USD` : '',
+    salaryMin: j.salary_min,
+    salaryMax: j.salary_max,
+    salaryCurrency: 'USD',
     remoteFlag: true,
     description: clean(j.description || '')
   }));
@@ -276,7 +304,9 @@ async function fromHimalayas() {
       tags: [].concat(j.seniority || [], j.categories || []),
       url: j.applicationLink || j.guid,
       posted: typeof j.pubDate === 'number' ? new Date(j.pubDate * 1000).toISOString() : j.pubDate || '',
-      salary: j.minSalary ? `${j.minSalary}-${j.maxSalary || j.minSalary}` : '',
+      salaryMin: j.minSalary,
+      salaryMax: j.maxSalary,
+      salaryCurrency: j.currency || 'USD',
       remoteFlag: true,
       description: clean(j.excerpt || j.description || '')
     };
@@ -358,6 +388,12 @@ const ADZUNA_DOMAINS = {
   pl: 'adzuna.pl'
 };
 
+// Adzuna returns salaries in each country's local currency.
+const ADZUNA_CURRENCY = {
+  gb: 'GBP', ch: 'CHF', pl: 'PLN',
+  de: 'EUR', fr: 'EUR', nl: 'EUR', es: 'EUR', it: 'EUR', at: 'EUR', be: 'EUR'
+};
+
 // Adzuna. Prefer Adzuna's own API (reliable, structured) when keys are present;
 // otherwise fall back to running an Adzuna scraper actor on Apify.
 async function fromAdzuna() {
@@ -418,7 +454,9 @@ async function adzunaViaApi(id, key) {
           tags: [c.toUpperCase()],
           url: j.redirect_url,
           posted: j.created,
-          salary: j.salary_min ? `${Math.round(j.salary_min)}-${Math.round(j.salary_max || j.salary_min)}` : '',
+          salaryMin: j.salary_min,
+          salaryMax: j.salary_max,
+          salaryCurrency: ADZUNA_CURRENCY[c] || 'EUR',
           remoteFlag: /remote/i.test(`${j.title} ${j.description || ''}`),
           description: clean(j.description || '')
         });
@@ -509,7 +547,7 @@ function toRecord(raw) {
     seniority: guessSeniority(raw.title || ''),
     category: (raw.category || '').trim(),
     tags: (Array.isArray(raw.tags) ? raw.tags : []).slice(0, 10),
-    salary: raw.salary || '',
+    salary: formatEurSalary(raw.salaryMin, raw.salaryMax, raw.salaryCurrency) || raw.salary || '',
     url: raw.url,
     source: raw.source,
     posted: raw.posted || '',
