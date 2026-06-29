@@ -16,7 +16,14 @@ const shouldMatch = [
   { title: 'Inclusion, Diversity, Equity & Allyship (IDEA) Partner' },
   { title: 'Equality, Diversity and Inclusion Adviser' },
   { title: 'People Partner', tags: ['d&i', 'belonging'] },
-  { title: 'Anti-Racism Programme Lead' }
+  { title: 'Anti-Racism Programme Lead' },
+  // Local-language DEI titles
+  { title: 'Diversity & Inklusion Manager (m/w/d)' }, // German
+  { title: 'Referent:in Vielfalt und Zugehörigkeit' }, // German
+  { title: 'Responsable Diversité et Inclusion' }, // French
+  { title: 'Técnico de Diversidad e Inclusión' }, // Spanish
+  { title: 'Diversiteit en Inclusie Adviseur' }, // Dutch
+  { title: 'Specjalista ds. Różnorodności' } // Polish
 ];
 
 // Not DEI roles — these MUST NOT match, even though many contain

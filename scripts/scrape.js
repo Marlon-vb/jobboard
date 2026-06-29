@@ -396,6 +396,39 @@ const ADZUNA_CURRENCY = {
   de: 'EUR', fr: 'EUR', nl: 'EUR', es: 'EUR', it: 'EUR', at: 'EUR', be: 'EUR'
 };
 
+// DEI search terms per language (diversity / inclusion etc. — never equity).
+const LANG_TERMS = {
+  en: ['diversity', 'inclusion', 'belonging', 'DEI'],
+  de: ['Vielfalt', 'Inklusion'],
+  fr: ['diversité'],
+  es: ['diversidad', 'inclusión'],
+  it: ['diversità', 'inclusione'],
+  nl: ['diversiteit', 'inclusie'],
+  pl: ['różnorodność', 'inkluzja']
+};
+
+// Which languages to search in each country (English everywhere + local).
+const COUNTRY_LANGS = {
+  gb: ['en'], ie: ['en'],
+  de: ['en', 'de'], at: ['en', 'de'], ch: ['en', 'de', 'fr'],
+  fr: ['en', 'fr'], be: ['en', 'nl', 'fr'],
+  es: ['en', 'es'], it: ['en', 'it'], nl: ['en', 'nl'], pl: ['en', 'pl']
+};
+
+const COUNTRY_NAME_CODE = {
+  'united kingdom': 'gb', uk: 'gb', england: 'gb', germany: 'de', deutschland: 'de',
+  netherlands: 'nl', france: 'fr', spain: 'es', ireland: 'ie', italy: 'it',
+  austria: 'at', belgium: 'be', switzerland: 'ch', poland: 'pl'
+};
+
+// Distinct DEI search terms for a country code, English + local language(s).
+function termsForCountry(code) {
+  const langs = COUNTRY_LANGS[code] || ['en'];
+  const out = [];
+  for (const l of langs) for (const t of LANG_TERMS[l] || []) if (!out.includes(t)) out.push(t);
+  return out;
+}
+
 // Adzuna. Prefer Adzuna's own API (reliable, structured) when keys are present;
 // otherwise fall back to running an Adzuna scraper actor on Apify.
 async function fromAdzuna() {
@@ -420,15 +453,15 @@ async function adzunaViaApi(id, key) {
     .split(',')
     .map((s) => s.trim().toLowerCase())
     .filter((c) => ADZUNA_DOMAINS[c]);
-  const terms = (process.env.ADZUNA_TITLE_TERMS || 'diversity,inclusion,belonging,DEI')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
+  const overrideTerms = process.env.ADZUNA_TITLE_TERMS
+    ? process.env.ADZUNA_TITLE_TERMS.split(',').map((s) => s.trim()).filter(Boolean)
+    : null;
   const perPage = Number(process.env.ADZUNA_RESULTS || 50);
 
   const seen = new Set();
   const out = [];
   for (const c of countries) {
+    const terms = overrideTerms || termsForCountry(c); // English + local language
     for (const term of terms) {
       const url =
         `https://api.adzuna.com/v1/api/jobs/${c}/search/1?app_id=${id}&app_key=${key}` +
@@ -540,7 +573,9 @@ async function fromJooble() {
   const seen = new Set();
   const out = [];
   for (const loc of locations) {
-    for (const term of DEI_TERMS) {
+    const code = COUNTRY_NAME_CODE[loc.toLowerCase()];
+    const terms = code ? termsForCountry(code) : DEI_TERMS; // English + local language
+    for (const term of terms) {
       let data;
       try {
         data = await postJson(`https://jooble.org/api/${encodeURIComponent(key)}`, { keywords: term, location: loc });
