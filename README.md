@@ -101,18 +101,40 @@ node scripts/scrape.js --source remotive,themuse   # only specific sources
 | `lever`       | no (opt-in env)        | Per-company boards via `LEVER_BOARDS=handle1,handle2`.       |
 | `adzuna`      | yes (free)             | Country-by-country EU search; needs Adzuna app id + key.     |
 
-The six no-key sources run on a plain `npm run scrape`. The opt-in sources only run
-when their environment variables are present, so default runs stay quiet:
+The six no-key sources run on a plain `npm run scrape`. The opt-in sources turn on
+automatically when their keys are present.
 
-```bash
-# Pull DEI roles straight from companies' own ATS boards:
-GREENHOUSE_BOARDS=elastic,mongodb,gitlab npm run scrape
-LEVER_BOARDS=netflix,plaid npm run scrape
+#### Setting up Adzuna (recommended — best European coverage)
 
-# Adzuna — get a free app id/key at https://developer.adzuna.com
-ADZUNA_APP_ID=xxxx ADZUNA_APP_KEY=yyyy npm run scrape
-# Optionally narrow the countries (defaults to a broad EU set):
-ADZUNA_APP_ID=xxxx ADZUNA_APP_KEY=yyyy ADZUNA_COUNTRIES=gb,de,nl,ie npm run scrape
+Adzuna gives real, country-by-country European search and is the strongest source
+for specifically-DEI roles. It's free:
+
+1. Sign up for a free API account at **https://developer.adzuna.com/** and copy your
+   **App ID** and **App Key**.
+2. Copy `.env.example` to `.env` and paste them in:
+
+   ```bash
+   cp .env.example .env
+   ```
+   ```
+   ADZUNA_APP_ID=your_app_id_here
+   ADZUNA_APP_KEY=your_app_key_here
+   ```
+3. Run the scraper — Adzuna now runs automatically:
+
+   ```bash
+   npm run scrape
+   ```
+
+By default it queries these European endpoints: `gb, de, fr, nl, es, it, at, be, ch, pl`.
+Narrow them with `ADZUNA_COUNTRIES=gb,de,nl` in your `.env`. (Adzuna has no Ireland/Nordics
+endpoints, so those aren't queried.) The `.env` file is git-ignored — your keys stay local.
+
+The same `.env` enables the company-ATS sources:
+
+```
+GREENHOUSE_BOARDS=elastic,mongodb
+LEVER_BOARDS=netflix,plaid
 ```
 
 ### API

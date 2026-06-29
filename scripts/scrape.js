@@ -25,6 +25,11 @@ import {
   guessSeniority,
   classifyRemote
 } from '../lib/filters.js';
+import { loadEnv } from '../lib/env.js';
+
+// Load .env before anything reads process.env (the SOURCES registry below uses
+// it to decide which keyed sources are enabled).
+loadEnv();
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
@@ -300,29 +305,43 @@ async function fromLever() {
   return out;
 }
 
+// Adzuna country endpoints that are in Europe (Adzuna has no Ireland/Nordics
+// endpoints, so we don't query those — a bad code returns an error).
+const ADZUNA_EU_COUNTRIES = ['gb', 'de', 'fr', 'nl', 'es', 'it', 'at', 'be', 'ch', 'pl'];
+
 async function fromAdzuna() {
   // Adzuna: real, country-specific European search. Free tier needs an app id
-  // + key (https://developer.adzuna.com). Opt-in via env vars. Queries each
-  // European country endpoint for "diversity inclusion".
+  // + key (https://developer.adzuna.com). Set ADZUNA_APP_ID / ADZUNA_APP_KEY in
+  // your .env. Queries each European country endpoint with DEI keywords; the
+  // strict DEI title filter then keeps only genuine DEI roles.
   const id = process.env.ADZUNA_APP_ID;
   const key = process.env.ADZUNA_APP_KEY;
-  if (!id || !key) throw new Error('set ADZUNA_APP_ID and ADZUNA_APP_KEY to enable Adzuna');
-  const countries = (process.env.ADZUNA_COUNTRIES || 'gb,de,fr,nl,es,it,ie,at,pl')
+  if (!id || !key) throw new Error('set ADZUNA_APP_ID and ADZUNA_APP_KEY (e.g. in .env) to enable Adzuna');
+
+  const countries = (process.env.ADZUNA_COUNTRIES || ADZUNA_EU_COUNTRIES.join(','))
     .split(',')
-    .map((s) => s.trim())
+    .map((s) => s.trim().toLowerCase())
     .filter(Boolean);
+  const what = encodeURIComponent('diversity inclusion equity belonging dei');
+
   const out = [];
   for (const c of countries) {
     const url =
       `https://api.adzuna.com/v1/api/jobs/${c}/search/1?app_id=${id}&app_key=${key}` +
-      `&what=${encodeURIComponent('diversity inclusion')}&results_per_page=50&content-type=application/json`;
-    const data = await getJson(url);
+      `&results_per_page=50&what_or=${what}&max_days_old=45&sort_by=date&content-type=application/json`;
+    let data;
+    try {
+      data = await getJson(url);
+    } catch (e) {
+      console.warn(`    · adzuna ${c.toUpperCase()}: ${e.message} (skipped)`);
+      continue; // one bad country shouldn't kill the whole source
+    }
     for (const j of data.results || []) {
       out.push({
         source: 'adzuna',
         rawId: j.id,
-        title: j.title,
-        company: j.company?.display_name,
+        title: clean(j.title || ''),
+        company: j.company?.display_name || 'Unknown',
         location: j.location?.display_name || c.toUpperCase(),
         category: j.category?.label || '',
         tags: [c.toUpperCase()],
