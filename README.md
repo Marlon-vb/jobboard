@@ -8,11 +8,18 @@ filterable UI. It ships with a curated, source-linked seed set so the board is n
 
 ![screenshot](docs/screenshot.png)
 
+Click any role to open the detail drawer; check it off to archive it:
+
+![detail drawer](docs/drawer.png)
+
 ## Features
 
 - 🔎 **Live scraping** of many job sources — Remotive, Jobicy, Arbeitnow (Europe-focused), RemoteOK, The Muse, and Himalayas with **no API key**, plus opt-in Greenhouse / Lever company boards and Adzuna's country-by-country European search.
 - 🎯 **Smart filtering**: keeps only DEI roles (diversity, equity, inclusion, belonging, EDI, DEIB, ERG…) that are in Europe or open worldwide-remote.
 - 🧭 **Interactive UI**: full-text search, plus one-click facets for work style (Remote / Hybrid), seniority, country, and source. Sort by newest / company / title.
+- 🪟 **Detail drawer**: click any role to slide open a panel with the full spec grid (location, work style, seniority, salary, posted date…), highlights, and an "About this role & what's required" section, plus a direct apply link.
+- ✅ **Reviewed → Archive workflow**: check roles off as you look at them and they move from **Open roles** into the **Archive** tab. Your progress is saved on the device (localStorage), so it survives refreshes. Restore any role back to Open in one click.
+- 🎨 **Dark-glassmorphism design**: animated aurora backdrop, frosted translucent panels, and smooth micro-interactions.
 - ♻️ **Refresh button** re-runs the scraper on demand from the browser.
 - 🌱 **Curated seed data**: 16 hand-picked, source-linked DEI roles/boards (GitLab, Spotify, SAP, Zalando, Roche, Wikimedia, Remote.com, and specialist boards like Diversity & Inclusion Leaders) so it works out of the box.
 - 🪶 **Tiny footprint**: one dependency (Express), plain HTML/CSS/JS frontend, no build step.

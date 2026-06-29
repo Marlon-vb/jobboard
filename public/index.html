@@ -16,6 +16,10 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
+    <div class="aurora" aria-hidden="true">
+      <span class="a1"></span><span class="a2"></span><span class="a3"></span>
+    </div>
+
     <header class="site-header">
       <div class="wrap header-inner">
         <div class="brand">
@@ -76,24 +80,55 @@
 
       <section class="results">
         <div class="results-head">
+          <div class="tabs" role="tablist">
+            <button class="tab active" data-tab="open" role="tab">
+              Open roles <span class="badge" id="count-open">0</span>
+            </button>
+            <button class="tab" data-tab="archive" role="tab">
+              Archive <span class="badge" id="count-archive">0</span>
+            </button>
+          </div>
           <p id="results-count" class="results-count">Loading…</p>
-          <div id="active-pills" class="active-pills"></div>
         </div>
+        <div id="active-pills" class="active-pills"></div>
         <div id="job-list" class="job-list"></div>
-        <div id="empty" class="empty hidden">
-          <p>No roles match these filters.</p>
-          <button class="btn" id="empty-clear">Clear filters</button>
-        </div>
+        <div id="empty" class="empty hidden"></div>
       </section>
     </main>
+
+    <!-- Detail drawer -->
+    <div id="overlay" class="overlay hidden"></div>
+    <aside id="drawer" class="drawer" aria-hidden="true" aria-label="Job details">
+      <div class="drawer-head">
+        <button id="drawer-close" class="drawer-close" aria-label="Close">✕</button>
+        <h2 id="drawer-title" class="drawer-title"></h2>
+        <span id="drawer-company" class="drawer-company"></span>
+      </div>
+      <div class="drawer-body">
+        <div class="spec-grid" id="drawer-specs"></div>
+        <div class="drawer-section" id="drawer-highlights-wrap">
+          <h4>Highlights</h4>
+          <div class="chips" id="drawer-highlights"></div>
+        </div>
+        <div class="drawer-section">
+          <h4>About this role &amp; what's required</h4>
+          <p id="drawer-desc"></p>
+        </div>
+      </div>
+      <div class="drawer-foot">
+        <a id="drawer-apply" class="btn" target="_blank" rel="noopener noreferrer">View &amp; apply ↗</a>
+        <button id="drawer-archive" class="btn-archive"></button>
+      </div>
+    </aside>
 
     <div id="toast" class="toast hidden"></div>
 
     <footer class="site-footer">
       <div class="wrap">
         <p>
-          Live data scraped from public job APIs (Remotive, Jobicy, Arbeitnow, RemoteOK) plus curated,
-          source-linked listings. Built for a focused European DEI job search.
+          Live data scraped from public job APIs (Remotive, Jobicy, Arbeitnow, RemoteOK, The Muse,
+          Himalayas, + optional Greenhouse/Lever/Adzuna) plus curated, source-linked listings.
+          Reviewed roles are saved on this device.
         </p>
       </div>
     </footer>

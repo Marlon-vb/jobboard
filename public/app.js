@@ -1,5 +1,8 @@
 // Frontend logic for the DEI Europe job board.
-// State lives in `filters`; every change re-queries /api/jobs.
+//   - Server-side search/filter/sort via /api/jobs
+//   - Client-side tabs (Open vs Archive) driven by a "reviewed" set in
+//     localStorage, so checking a role off survives reloads.
+//   - A slide-in detail drawer with full role info + apply + archive.
 
 const state = {
   q: '',
@@ -7,26 +10,39 @@ const state = {
   country: '',
   seniority: '',
   remote: '',
-  source: ''
+  source: '',
+  tab: 'open'
 };
 
+const REVIEW_KEY = 'dei.reviewed.v1';
+const reviewed = new Set(JSON.parse(localStorage.getItem(REVIEW_KEY) || '[]'));
+const saveReviewed = () => localStorage.setItem(REVIEW_KEY, JSON.stringify([...reviewed]));
+
+// Cache of the jobs currently rendered, by id, so the drawer has full data.
+let jobIndex = new Map();
+
+const $ = (id) => document.getElementById(id);
 const els = {
-  search: document.getElementById('search'),
-  sort: document.getElementById('sort'),
-  list: document.getElementById('job-list'),
-  count: document.getElementById('results-count'),
-  empty: document.getElementById('empty'),
-  pills: document.getElementById('active-pills'),
-  status: document.getElementById('data-status'),
-  refresh: document.getElementById('refresh-btn'),
-  toast: document.getElementById('toast')
+  search: $('search'),
+  sort: $('sort'),
+  list: $('job-list'),
+  count: $('results-count'),
+  empty: $('empty'),
+  pills: $('active-pills'),
+  status: $('data-status'),
+  refresh: $('refresh-btn'),
+  toast: $('toast'),
+  countOpen: $('count-open'),
+  countArchive: $('count-archive'),
+  overlay: $('overlay'),
+  drawer: $('drawer')
 };
 
 const FACETS = [
-  { key: 'remote', el: document.getElementById('facet-remote'), metaKey: 'remoteTypes' },
-  { key: 'seniority', el: document.getElementById('facet-seniority'), metaKey: 'seniorities' },
-  { key: 'country', el: document.getElementById('facet-country'), metaKey: 'countries' },
-  { key: 'source', el: document.getElementById('facet-source'), metaKey: 'sourceFacets' }
+  { key: 'remote', el: $('facet-remote'), metaKey: 'remoteTypes' },
+  { key: 'seniority', el: $('facet-seniority'), metaKey: 'seniorities' },
+  { key: 'country', el: $('facet-country'), metaKey: 'countries' },
+  { key: 'source', el: $('facet-source'), metaKey: 'sourceFacets' }
 ];
 
 const esc = (s) =>
@@ -37,7 +53,7 @@ function toast(msg) {
   els.toast.textContent = msg;
   els.toast.classList.remove('hidden');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => els.toast.classList.add('hidden'), 4200);
+  toastTimer = setTimeout(() => els.toast.classList.add('hidden'), 4000);
 }
 
 function timeAgo(iso) {
@@ -53,10 +69,11 @@ function timeAgo(iso) {
 
 function queryString() {
   const p = new URLSearchParams();
-  for (const [k, v] of Object.entries(state)) if (v) p.set(k, v);
+  for (const k of ['q', 'sort', 'country', 'seniority', 'remote', 'source']) if (state[k]) p.set(k, state[k]);
   return p.toString();
 }
 
+// ---- Facets + pills ----
 async function loadMeta() {
   const meta = await fetch('/api/meta').then((r) => r.json());
   els.status.textContent = meta.generatedAt
@@ -77,22 +94,25 @@ function renderFacet(facet, values) {
 }
 
 function renderPills() {
-  const active = Object.entries(state).filter(([k, v]) => v && k !== 'sort' && k !== 'q');
-  if (state.q) active.unshift(['q', `“${state.q}”`]);
-  els.pills.innerHTML = active
-    .map(([k, v]) => `<span class="pill" data-clear="${k}">${esc(v)}</span>`)
-    .join('');
+  const active = [];
+  if (state.q) active.push(['q', `“${state.q}”`]);
+  for (const k of ['remote', 'seniority', 'country', 'source']) if (state[k]) active.push([k, state[k]]);
+  els.pills.innerHTML = active.map(([k, v]) => `<span class="pill" data-clear="${k}">${esc(v)}</span>`).join('');
 }
 
+// ---- Cards ----
 function jobCard(j) {
+  const isRev = reviewed.has(j.id);
   const tags = (j.tags || []).slice(0, 4).map((t) => `<span class="tag">${esc(t)}</span>`).join('');
+  const toggleLabel = state.tab === 'archive' ? '↺ Restore' : isRev ? '✓ Reviewed' : '○ Mark reviewed';
   return `
-    <article class="job-card">
+    <article class="job-card ${isRev ? 'reviewed' : ''}" data-id="${esc(j.id)}">
       <div class="job-top">
         <div>
           <h3 class="job-title">${esc(j.title)}</h3>
           <span class="job-company">${esc(j.company)}</span>
         </div>
+        <button class="review-toggle ${isRev ? 'on' : ''}" data-review="${esc(j.id)}">${toggleLabel}</button>
       </div>
       <div class="job-meta">
         <span class="tag remote">📍 ${esc(j.location)}</span>
@@ -104,30 +124,114 @@ function jobCard(j) {
       ${j.description ? `<p class="job-desc">${esc(j.description)}</p>` : ''}
       <div class="job-bottom">
         <span class="job-source">${esc(j.source)}${j.posted ? ` · ${timeAgo(j.posted)}` : ''}</span>
-        <a class="btn apply" href="${esc(j.url)}" target="_blank" rel="noopener noreferrer">View &amp; apply →</a>
+        <div class="row">
+          <span class="ghost-link">Details →</span>
+          <a class="btn apply" href="${esc(j.url)}" target="_blank" rel="noopener noreferrer" data-stop>Apply ↗</a>
+        </div>
       </div>
     </article>`;
 }
 
 async function loadJobs() {
-  els.list.setAttribute('aria-busy', 'true');
   const data = await fetch(`/api/jobs?${queryString()}`).then((r) => r.json());
-  els.count.innerHTML = `<strong>${data.matched}</strong> of ${data.total} roles`;
-  els.list.innerHTML = data.jobs.map(jobCard).join('');
-  els.empty.classList.toggle('hidden', data.jobs.length > 0);
+  jobIndex = new Map(data.jobs.map((j) => [j.id, j]));
+
+  const open = data.jobs.filter((j) => !reviewed.has(j.id));
+  const archived = data.jobs.filter((j) => reviewed.has(j.id));
+  els.countOpen.textContent = open.length;
+  els.countArchive.textContent = archived.length;
+
+  const shown = state.tab === 'archive' ? archived : open;
+  els.count.innerHTML = `<strong>${shown.length}</strong> ${state.tab === 'archive' ? 'archived' : 'open'} · ${data.total} total`;
+  els.list.innerHTML = shown.map(jobCard).join('');
+
+  if (shown.length === 0) {
+    els.empty.classList.remove('hidden');
+    els.empty.innerHTML =
+      state.tab === 'archive'
+        ? `<div class="big">🗂️</div><p>No archived roles yet. Mark roles as reviewed and they’ll land here.</p>`
+        : `<div class="big">🔍</div><p>No open roles match these filters.</p><button class="btn" id="empty-clear">Clear filters</button>`;
+    const ec = $('empty-clear');
+    if (ec) ec.addEventListener('click', clearAll);
+  } else {
+    els.empty.classList.add('hidden');
+  }
   renderPills();
-  els.list.removeAttribute('aria-busy');
 }
 
-function setFilter(key, value) {
-  state[key] = state[key] === value ? '' : value; // toggle
+// ---- Detail drawer ----
+function openDrawer(id) {
+  const j = jobIndex.get(id);
+  if (!j) return;
+  $('drawer-title').textContent = j.title;
+  $('drawer-company').textContent = j.company;
+  $('drawer-apply').href = j.url;
+
+  const specs = [
+    ['Location', j.location],
+    ['Work style', j.remote],
+    ['Seniority', j.seniority],
+    ['Source', j.source],
+    j.salary ? ['Salary', j.salary] : null,
+    j.posted ? ['Posted', timeAgo(j.posted)] : null,
+    j.category ? ['Category', j.category] : null,
+    ['Country', j.country]
+  ].filter(Boolean);
+  $('drawer-specs').innerHTML = specs
+    .map(([k, v]) => `<div class="spec"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div></div>`)
+    .join('');
+
+  const tags = j.tags || [];
+  $('drawer-highlights-wrap').style.display = tags.length ? '' : 'none';
+  $('drawer-highlights').innerHTML = tags.map((t) => `<span class="tag">${esc(t)}</span>`).join('');
+
+  $('drawer-desc').textContent =
+    j.description || 'Full description is on the listing — open “View & apply” to read the requirements and apply.';
+
+  updateArchiveBtn(id);
+  els.overlay.classList.remove('hidden');
+  els.drawer.classList.add('show');
+  els.drawer.dataset.id = id;
+  requestAnimationFrame(() => els.overlay.classList.add('show'));
+  document.body.style.overflow = 'hidden';
+}
+
+function closeDrawer() {
+  els.drawer.classList.remove('show');
+  els.overlay.classList.remove('show');
+  setTimeout(() => els.overlay.classList.add('hidden'), 250);
+  document.body.style.overflow = '';
+}
+
+function updateArchiveBtn(id) {
+  const btn = $('drawer-archive');
+  btn.textContent = reviewed.has(id) ? '↺ Restore to open' : '✓ Mark reviewed & archive';
+}
+
+// ---- Reviewed / archive ----
+function toggleReviewed(id) {
+  if (reviewed.has(id)) {
+    reviewed.delete(id);
+    toast('Moved back to open roles.');
+  } else {
+    reviewed.add(id);
+    toast('Archived — nice, one less to check.');
+  }
+  saveReviewed();
+  updateArchiveBtn(id);
+  loadJobs();
+}
+
+// ---- State changes ----
+function clearAll() {
+  Object.assign(state, { q: '', country: '', seniority: '', remote: '', source: '' });
+  els.search.value = '';
   loadMeta();
   loadJobs();
 }
 
-function clearAll() {
-  Object.assign(state, { q: '', country: '', seniority: '', remote: '', source: '' });
-  els.search.value = '';
+function setFilter(key, value) {
+  state[key] = state[key] === value ? '' : value;
   loadMeta();
   loadJobs();
 }
@@ -147,9 +251,30 @@ els.sort.addEventListener('change', (e) => {
   loadJobs();
 });
 
+document.querySelectorAll('.tab').forEach((t) =>
+  t.addEventListener('click', () => {
+    state.tab = t.dataset.tab;
+    document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('active', x === t));
+    loadJobs();
+  })
+);
+
+// Delegated clicks on the results area.
+els.list.addEventListener('click', (e) => {
+  const reviewBtn = e.target.closest('[data-review]');
+  if (reviewBtn) {
+    e.stopPropagation();
+    return toggleReviewed(reviewBtn.dataset.review);
+  }
+  if (e.target.closest('[data-stop]')) return; // let the apply link work
+  const card = e.target.closest('.job-card');
+  if (card) openDrawer(card.dataset.id);
+});
+
+// Filter chips + pills (anywhere in the sidebar/results head).
 document.addEventListener('click', (e) => {
-  const chip = e.target.closest('.chip');
-  if (chip) return setFilter(chip.dataset.key, chip.dataset.value);
+  const chip = e.target.closest('.chip:not(.tag)');
+  if (chip && chip.dataset.key) return setFilter(chip.dataset.key, chip.dataset.value);
   const pill = e.target.closest('.pill');
   if (pill) {
     state[pill.dataset.clear] = '';
@@ -159,20 +284,21 @@ document.addEventListener('click', (e) => {
   }
 });
 
-document.getElementById('clear-filters').addEventListener('click', clearAll);
-document.getElementById('empty-clear').addEventListener('click', clearAll);
+$('clear-filters').addEventListener('click', clearAll);
+$('drawer-close').addEventListener('click', closeDrawer);
+els.overlay.addEventListener('click', closeDrawer);
+$('drawer-archive').addEventListener('click', () => toggleReviewed(els.drawer.dataset.id));
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeDrawer();
+});
 
 els.refresh.addEventListener('click', async () => {
   els.refresh.disabled = true;
   els.refresh.textContent = '⟳ Refreshing…';
-  toast('Pulling fresh listings from live job APIs… this can take a moment.');
+  toast('Pulling fresh listings from live job APIs…');
   try {
     const res = await fetch('/api/refresh', { method: 'POST' }).then((r) => r.json());
-    if (res.ok) {
-      toast('Live data refreshed.');
-    } else {
-      toast('Refresh ran but live sources were unreachable — showing existing data.');
-    }
+    toast(res.ok ? 'Live data refreshed.' : 'Refresh ran but live sources were unreachable — showing existing data.');
   } catch {
     toast('Could not reach the server to refresh.');
   } finally {
