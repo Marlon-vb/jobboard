@@ -100,6 +100,8 @@ node scripts/scrape.js --source remotive,themuse   # only specific sources
 | `greenhouse`  | no (opt-in env)        | Per-company boards via `GREENHOUSE_BOARDS=token1,token2`.    |
 | `lever`       | no (opt-in env)        | Per-company boards via `LEVER_BOARDS=handle1,handle2`.       |
 | `adzuna`      | yes (free)             | Adzuna's own API (App ID/Key) — or, as a fallback, an Apify actor (`APIFY_TOKEN`). |
+| `jooble`      | yes (free, opt-in)     | Pan-European aggregator; searches each country for DEI terms. Needs `JOOBLE_KEY`. |
+| `reed`        | yes (free, opt-in)     | Large UK board, strong UK DEI depth. Needs `REED_KEY`.       |
 
 The six no-key sources run on a plain `npm run scrape`. The opt-in sources turn on
 automatically when their keys are present.
@@ -135,6 +137,17 @@ keeps only real DEI roles. Your `.env` is git-ignored, so your keys stay local.
 (plus optionally `APIFY_ADZUNA_ACTOR` and `APIFY_ADZUNA_INPUT` — the exact input JSON copied from
 your chosen actor's page). Output fields are mapped defensively. Note Apify actors consume compute
 units and the sync run waits up to ~5 min, so keep `APIFY_MAX_ITEMS` modest.
+
+#### More European aggregators (optional)
+
+Add even more coverage by dropping these free keys into `.env` (each runs automatically once its
+key is present, and is filtered to specific DEI roles the same way):
+
+- **Jooble** (pan-European) — get a key at https://jooble.org/api/about, then set `JOOBLE_KEY`.
+  Tune the countries with `JOOBLE_LOCATIONS`.
+- **Reed** (UK, deep DEI coverage) — get a key at https://www.reed.co.uk/developers, then set `REED_KEY`.
+
+Both reuse `DEI_TERMS` (default `diversity,inclusion,belonging,DEI`) as the search terms.
 
 The same `.env` enables the company-ATS sources:
 

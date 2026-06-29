@@ -51,12 +51,14 @@ const ONLY = sourceArg
       .filter(Boolean)
   : null;
 
-async function getJson(url, { timeout = 20000 } = {}) {
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function getJson(url, { timeout = 20000, headers = {} } = {}) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeout);
   try {
     const res = await fetch(url, {
-      headers: { 'User-Agent': UA, Accept: 'application/json' },
+      headers: { 'User-Agent': UA, Accept: 'application/json', ...headers },
       signal: ctrl.signal
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -423,7 +425,6 @@ async function adzunaViaApi(id, key) {
     .map((s) => s.trim())
     .filter(Boolean);
   const perPage = Number(process.env.ADZUNA_RESULTS || 50);
-  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   const seen = new Set();
   const out = [];
@@ -516,6 +517,105 @@ async function adzunaViaApify(token) {
   });
 }
 
+// DEI search terms reused by keyword-search sources (Jooble, Reed).
+const DEI_TERMS = (process.env.DEI_TERMS || 'diversity,inclusion,belonging,DEI')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+async function fromJooble() {
+  // Jooble: pan-European aggregator. Free key (per-request body): set JOOBLE_KEY
+  // in .env (get one at https://jooble.org/api/about). Searched per country per
+  // DEI term; the strict DEI title filter keeps real DEI roles.
+  const key = realEnv('JOOBLE_KEY');
+  if (!key) throw new Error('set JOOBLE_KEY in .env (free at https://jooble.org/api/about)');
+  const locations = (
+    process.env.JOOBLE_LOCATIONS ||
+    'United Kingdom,Germany,Netherlands,France,Spain,Ireland'
+  )
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const seen = new Set();
+  const out = [];
+  for (const loc of locations) {
+    for (const term of DEI_TERMS) {
+      let data;
+      try {
+        data = await postJson(`https://jooble.org/api/${encodeURIComponent(key)}`, { keywords: term, location: loc });
+      } catch (e) {
+        console.warn(`    · jooble ${loc}/${term}: ${e.message} (skipped)`);
+        await sleep(150);
+        continue;
+      }
+      for (const j of data.jobs || []) {
+        const id = j.id || j.link;
+        if (!id || seen.has(id)) continue;
+        seen.add(id);
+        out.push({
+          source: 'jooble',
+          rawId: id,
+          title: clean(j.title || ''),
+          company: j.company || 'Unknown',
+          location: j.location || loc,
+          category: j.type || '',
+          tags: [],
+          url: j.link,
+          posted: j.updated || '',
+          salary: typeof j.salary === 'string' ? j.salary : '',
+          remoteFlag: /remote/i.test(`${j.title || ''} ${j.snippet || ''}`),
+          description: clean(j.snippet || '')
+        });
+      }
+      await sleep(150);
+    }
+  }
+  return out;
+}
+
+async function fromReed() {
+  // Reed: large UK job board. Free key (HTTP Basic, key as username): set
+  // REED_KEY in .env (https://www.reed.co.uk/developers). Great UK DEI depth.
+  const key = realEnv('REED_KEY');
+  if (!key) throw new Error('set REED_KEY in .env (free at https://www.reed.co.uk/developers)');
+  const auth = 'Basic ' + Buffer.from(`${key}:`).toString('base64');
+
+  const seen = new Set();
+  const out = [];
+  for (const term of DEI_TERMS) {
+    const url = `https://www.reed.co.uk/api/1.0/search?keywords=${encodeURIComponent(term)}&resultsToTake=100`;
+    let data;
+    try {
+      data = await getJson(url, { headers: { Authorization: auth } });
+    } catch (e) {
+      console.warn(`    · reed ${term}: ${e.message} (skipped)`);
+      continue;
+    }
+    for (const j of data.results || []) {
+      if (seen.has(j.jobId)) continue;
+      seen.add(j.jobId);
+      out.push({
+        source: 'reed',
+        rawId: j.jobId,
+        title: clean(j.jobTitle || ''),
+        company: j.employerName || 'Unknown',
+        location: j.locationName || 'United Kingdom',
+        category: '',
+        tags: [],
+        url: j.jobUrl,
+        posted: j.date || '',
+        salaryMin: j.minimumSalary,
+        salaryMax: j.maximumSalary,
+        salaryCurrency: j.currency || 'GBP',
+        remoteFlag: /remote/i.test(`${j.jobTitle || ''} ${j.jobDescription || ''}`),
+        description: clean(j.jobDescription || '')
+      });
+    }
+  }
+  return out;
+}
+
 // Registry. `default` controls whether a source runs on a plain `npm run scrape`.
 // Keyed sources stay off unless their env vars are present, so default runs
 // don't spam 404s/auth errors. `--source a,b` overrides and runs exactly those.
@@ -531,7 +631,9 @@ const SOURCES = {
   adzuna: {
     fn: fromAdzuna,
     default: !!(realEnv('ADZUNA_APP_ID') && realEnv('ADZUNA_APP_KEY')) || !!realEnv('APIFY_TOKEN')
-  }
+  },
+  jooble: { fn: fromJooble, default: !!realEnv('JOOBLE_KEY') },
+  reed: { fn: fromReed, default: !!realEnv('REED_KEY') }
 };
 
 // ---- Orchestration ---------------------------------------------------------
