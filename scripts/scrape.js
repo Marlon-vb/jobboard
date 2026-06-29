@@ -373,43 +373,57 @@ async function fromAdzuna() {
   );
 }
 
-// Direct Adzuna API: one request per European country, DEI keywords via what_or,
-// fresh + sorted by date. The strict DEI title filter then keeps real DEI roles.
+// Direct Adzuna API. We search the TITLE for each DEI term (title_only), per
+// European country — so Adzuna returns title-matched DEI roles rather than every
+// job that mentions diversity in its boilerplate. Results are deduped by id and
+// still validated by the strict DEI filter.
 async function adzunaViaApi(id, key) {
   const countries = (process.env.ADZUNA_COUNTRIES || Object.keys(ADZUNA_DOMAINS).join(','))
     .split(',')
     .map((s) => s.trim().toLowerCase())
     .filter((c) => ADZUNA_DOMAINS[c]);
-  const what = encodeURIComponent(process.env.ADZUNA_QUERY || 'diversity inclusion equity belonging dei');
+  const terms = (process.env.ADZUNA_TITLE_TERMS || 'diversity,inclusion,belonging,DEI')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
   const perPage = Number(process.env.ADZUNA_RESULTS || 50);
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+  const seen = new Set();
   const out = [];
   for (const c of countries) {
-    const url =
-      `https://api.adzuna.com/v1/api/jobs/${c}/search/1?app_id=${id}&app_key=${key}` +
-      `&results_per_page=${perPage}&what_or=${what}&max_days_old=45&sort_by=date&content-type=application/json`;
-    let data;
-    try {
-      data = await getJson(url);
-    } catch (e) {
-      console.warn(`    · adzuna ${c.toUpperCase()}: ${e.message} (skipped)`);
-      continue;
-    }
-    for (const j of data.results || []) {
-      out.push({
-        source: 'adzuna',
-        rawId: j.id,
-        title: clean(j.title || ''),
-        company: j.company?.display_name || 'Unknown',
-        location: j.location?.display_name || c.toUpperCase(),
-        category: j.category?.label || '',
-        tags: [c.toUpperCase()],
-        url: j.redirect_url,
-        posted: j.created,
-        salary: j.salary_min ? `${Math.round(j.salary_min)}-${Math.round(j.salary_max || j.salary_min)}` : '',
-        remoteFlag: /remote/i.test(`${j.title} ${j.description || ''}`),
-        description: clean(j.description || '')
-      });
+    for (const term of terms) {
+      const url =
+        `https://api.adzuna.com/v1/api/jobs/${c}/search/1?app_id=${id}&app_key=${key}` +
+        `&results_per_page=${perPage}&title_only=${encodeURIComponent(term)}` +
+        `&max_days_old=60&sort_by=date&content-type=application/json`;
+      let data;
+      try {
+        data = await getJson(url);
+      } catch (e) {
+        console.warn(`    · adzuna ${c.toUpperCase()}/${term}: ${e.message} (skipped)`);
+        await sleep(200);
+        continue;
+      }
+      for (const j of data.results || []) {
+        if (seen.has(j.id)) continue;
+        seen.add(j.id);
+        out.push({
+          source: 'adzuna',
+          rawId: j.id,
+          title: clean(j.title || ''),
+          company: j.company?.display_name || 'Unknown',
+          location: j.location?.display_name || c.toUpperCase(),
+          category: j.category?.label || '',
+          tags: [c.toUpperCase()],
+          url: j.redirect_url,
+          posted: j.created,
+          salary: j.salary_min ? `${Math.round(j.salary_min)}-${Math.round(j.salary_max || j.salary_min)}` : '',
+          remoteFlag: /remote/i.test(`${j.title} ${j.description || ''}`),
+          description: clean(j.description || '')
+        });
+      }
+      await sleep(200); // be gentle on Adzuna's rate limit
     }
   }
   return out;
