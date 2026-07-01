@@ -32,6 +32,7 @@ First run, before loading live data — honest and empty by design:
 - 🔗 **Specific postings only**: each result links directly to its real job posting (the source API's canonical URL), never to a generic search/aggregator page.
 - 🧭 **Interactive UI**: full-text search, plus one-click facets for work style (Remote / Hybrid), seniority, country, and source. Sort by newest / company / title.
 - 🏠 **Remote & English detection**: the scraper reads each ad body (multilingual) to classify **Remote / Hybrid / On-site** even when the location is just a city, and flags whether a role **welcomes English speakers** (working language is English, ad written in English, or an English-speaking country) vs. requires a local language. Both are one-click filters.
+- 🚦 **Language-accessibility rule**: ads written fully in another language are dropped at scrape time **unless** they explicitly welcome English speakers *and* offer remote capability — so the board never fills up with roles you can't actually apply to. (Local-language "English required" phrases like *sehr gute Englischkenntnisse* or *anglais courant* are recognised.)
 - 🪟 **Detail drawer**: click any role to slide open a panel with the full spec grid (location, work style, language, seniority, salary, posted date…), highlights, and an "About this role & what's required" section, plus a direct apply link.
 - ✅ **Reviewed → Archive workflow**: check roles off as you look at them and they move from **Open roles** into the **Archive** tab. Your progress is saved on the device (localStorage), so it survives refreshes. Restore any role back to Open in one click.
 - ⭐ **Favorites tab**: star any role to save it to a dedicated **Favorites** tab (also persisted on the device). Independent of the archive, so you can shortlist and tick-off separately.
@@ -96,8 +97,11 @@ node scripts/scrape.js --source remotive,themuse   # only specific sources
 | `jobicy`      | no                     | Remote jobs API.                                             |
 | `arbeitnow`   | no                     | European job board (great for Germany/EU).                   |
 | `remoteok`    | no                     | Remote jobs API.                                             |
-| `themuse`     | no                     | Filtered to the HR & Recruiting category.                    |
+| `themuse`     | no                     | General postings (5 pages); DEI title filter does the work.  |
 | `himalayas`   | no                     | Remote-only jobs API.                                        |
+| `weworkremotely` | no                  | Public RSS feed; remote-only.                                |
+| `findwork`    | yes (free, opt-in)     | Remote-heavy search API. Needs `FINDWORK_KEY`.               |
+| `careerjet`   | yes (free, opt-in)     | Pan-European aggregator; per-country locales. Needs `CAREERJET_ID`. |
 | `greenhouse`  | no (opt-in env)        | Per-company boards via `GREENHOUSE_BOARDS=token1,token2`.    |
 | `lever`       | no (opt-in env)        | Per-company boards via `LEVER_BOARDS=handle1,handle2`.       |
 | `adzuna`      | yes (free)             | Adzuna's own API (App ID/Key) — or, as a fallback, an Apify actor (`APIFY_TOKEN`). |
@@ -147,8 +151,12 @@ key is present, and is filtered to specific DEI roles the same way):
 - **Jooble** (pan-European) — get a key at https://jooble.org/api/about, then set `JOOBLE_KEY`.
   Tune the countries with `JOOBLE_LOCATIONS`.
 - **Reed** (UK, deep DEI coverage) — get a key at https://www.reed.co.uk/developers, then set `REED_KEY`.
+- **Findwork.dev** (remote-heavy) — get a key at https://findwork.dev/developers/, then set `FINDWORK_KEY`.
+- **Careerjet** (pan-European, per-country locales) — get a free affiliate ID at
+  https://www.careerjet.com/partners/api/, then set `CAREERJET_ID` (tune `CAREERJET_COUNTRIES`).
 
-Both reuse `DEI_TERMS` (default `diversity,inclusion,belonging,DEI`) as the search terms.
+Keyword sources reuse `DEI_TERMS` (default `diversity,inclusion,belonging,DEI`); Adzuna,
+Jooble and Careerjet additionally search each country's local-language DEI terms.
 
 The same `.env` enables the company-ATS sources:
 

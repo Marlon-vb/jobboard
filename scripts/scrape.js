@@ -24,7 +24,8 @@ import {
   normalizeCountry,
   guessSeniority,
   classifyRemote,
-  detectEnglishFriendly
+  detectEnglishFriendly,
+  isAccessibleToEnglishSpeakers
 } from '../lib/filters.js';
 import { loadEnv } from '../lib/env.js';
 
@@ -64,6 +65,21 @@ async function getJson(url, { timeout = 20000, headers = {} } = {}) {
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+async function getText(url, { timeout = 20000 } = {}) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), timeout);
+  try {
+    const res = await fetch(url, {
+      headers: { 'User-Agent': UA, Accept: 'application/rss+xml, application/xml, text/xml, */*' },
+      signal: ctrl.signal
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.text();
   } finally {
     clearTimeout(t);
   }
@@ -259,13 +275,12 @@ async function fromRemoteOk() {
 }
 
 async function fromTheMuse() {
-  // The Muse: open API (no key). Focus on the HR/Recruiting category to raise
-  // the DEI hit-rate; the shared filter still does the final DEI check.
+  // The Muse: open API (no key). NO category filter — category names drift and
+  // an unknown one silently returns 0 results (which bit us). The strict DEI
+  // title filter downstream does the precision work instead.
   const out = [];
-  for (let page = 0; page < 3; page++) {
-    const url = `https://www.themuse.com/api/public/jobs?page=${page}&category=${encodeURIComponent(
-      'Human Resources and Recruiting'
-    )}`;
+  for (let page = 0; page < 5; page++) {
+    const url = `https://www.themuse.com/api/public/jobs?page=${page}`;
     const data = await getJson(url);
     for (const j of data.results || []) {
       const loc = (j.locations || []).map((l) => l.name).join(', ');
@@ -652,6 +667,134 @@ async function fromReed() {
   return out;
 }
 
+async function fromWeWorkRemotely() {
+  // WeWorkRemotely: public RSS feed, no key. All roles are remote. Titles come
+  // as "Company: Role". Minimal regex-based RSS parsing (no XML dependency).
+  const xml = await getText('https://weworkremotely.com/remote-jobs.rss');
+  const items = xml.match(/<item>[\s\S]*?<\/item>/g) || [];
+  const field = (block, tag) => {
+    const m = block.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'i'));
+    return m ? m[1].replace(/^<!\[CDATA\[/, '').replace(/\]\]>$/, '').trim() : '';
+  };
+  return items.map((block) => {
+    const rawTitle = decodeEntities(field(block, 'title'));
+    const sep = rawTitle.indexOf(': ');
+    const company = sep > 0 ? rawTitle.slice(0, sep) : 'Unknown';
+    const title = sep > 0 ? rawTitle.slice(sep + 2) : rawTitle;
+    const link = field(block, 'link') || field(block, 'guid');
+    return {
+      source: 'weworkremotely',
+      rawId: link,
+      title: clean(title),
+      company: clean(company),
+      location: decodeEntities(field(block, 'region')) || 'Remote — Worldwide',
+      category: decodeEntities(field(block, 'category')),
+      tags: [],
+      url: link,
+      posted: field(block, 'pubDate') ? new Date(field(block, 'pubDate')).toISOString() : '',
+      remoteFlag: true,
+      description: clean(field(block, 'description')).slice(0, 1200)
+    };
+  });
+}
+
+async function fromFindwork() {
+  // Findwork.dev: remote-heavy job API. Free key (opt-in): set FINDWORK_KEY in
+  // .env (https://findwork.dev/developers/). Token auth header.
+  const key = realEnv('FINDWORK_KEY');
+  if (!key) throw new Error('set FINDWORK_KEY in .env (free at https://findwork.dev/developers/)');
+  const seen = new Set();
+  const out = [];
+  for (const term of DEI_TERMS) {
+    let data;
+    try {
+      data = await getJson(`https://findwork.dev/api/jobs/?search=${encodeURIComponent(term)}`, {
+        headers: { Authorization: `Token ${key}` }
+      });
+    } catch (e) {
+      console.warn(`    · findwork ${term}: ${e.message} (skipped)`);
+      continue;
+    }
+    for (const j of data.results || []) {
+      if (!j.id || seen.has(j.id)) continue;
+      seen.add(j.id);
+      out.push({
+        source: 'findwork',
+        rawId: j.id,
+        title: clean(j.role || ''),
+        company: j.company_name || 'Unknown',
+        location: j.location || (j.remote ? 'Remote' : 'See listing'),
+        category: '',
+        tags: (j.keywords || []).slice(0, 6),
+        url: j.url,
+        posted: j.date_posted || '',
+        remoteFlag: j.remote === true,
+        description: clean(j.text || '')
+      });
+    }
+    await sleep(150);
+  }
+  return out;
+}
+
+// Careerjet locales for the countries we cover.
+const CAREERJET_LOCALES = {
+  gb: 'en_GB', ie: 'en_IE', de: 'de_DE', at: 'de_AT', ch: 'de_CH',
+  fr: 'fr_FR', nl: 'nl_NL', es: 'es_ES', it: 'it_IT', be: 'nl_BE', pl: 'pl_PL'
+};
+
+async function fromCareerjet() {
+  // Careerjet: pan-European aggregator. Free affiliate ID (opt-in): set
+  // CAREERJET_ID in .env (https://www.careerjet.com/partners/api/). Their API
+  // requires user_ip/user_agent params. Response shape mapped defensively.
+  const affid = realEnv('CAREERJET_ID');
+  if (!affid) throw new Error('set CAREERJET_ID in .env (free at careerjet.com/partners/api)');
+  const countries = (process.env.CAREERJET_COUNTRIES || 'gb,de,fr,nl,es,it,pl')
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter((c) => CAREERJET_LOCALES[c]);
+
+  const seen = new Set();
+  const out = [];
+  for (const c of countries) {
+    for (const term of termsForCountry(c)) {
+      const url =
+        `https://public.api.careerjet.net/search?affid=${encodeURIComponent(affid)}` +
+        `&keywords=${encodeURIComponent(term)}&locale_code=${CAREERJET_LOCALES[c]}` +
+        `&user_ip=127.0.0.1&user_agent=${encodeURIComponent(UA)}&pagesize=50&sort=date`;
+      let data;
+      try {
+        data = await getJson(url);
+      } catch (e) {
+        console.warn(`    · careerjet ${c.toUpperCase()}/${term}: ${e.message} (skipped)`);
+        await sleep(150);
+        continue;
+      }
+      for (const j of data.jobs || []) {
+        const id = j.url || `${j.company}-${j.title}`;
+        if (!id || seen.has(id)) continue;
+        seen.add(id);
+        out.push({
+          source: 'careerjet',
+          rawId: id,
+          title: clean(j.title || ''),
+          company: j.company || 'Unknown',
+          location: j.locations || c.toUpperCase(),
+          category: '',
+          tags: [c.toUpperCase()],
+          url: j.url,
+          posted: j.date || '',
+          salary: typeof j.salary === 'string' ? j.salary : '',
+          remoteFlag: /remote/i.test(`${j.title} ${j.description || ''}`),
+          description: clean(j.description || '')
+        });
+      }
+      await sleep(150);
+    }
+  }
+  return out;
+}
+
 // Registry. `default` controls whether a source runs on a plain `npm run scrape`.
 // Keyed sources stay off unless their env vars are present, so default runs
 // don't spam 404s/auth errors. `--source a,b` overrides and runs exactly those.
@@ -669,7 +812,10 @@ const SOURCES = {
     default: !!(realEnv('ADZUNA_APP_ID') && realEnv('ADZUNA_APP_KEY')) || !!realEnv('APIFY_TOKEN')
   },
   jooble: { fn: fromJooble, default: !!realEnv('JOOBLE_KEY') },
-  reed: { fn: fromReed, default: !!realEnv('REED_KEY') }
+  reed: { fn: fromReed, default: !!realEnv('REED_KEY') },
+  weworkremotely: { fn: fromWeWorkRemotely, default: true },
+  findwork: { fn: fromFindwork, default: !!realEnv('FINDWORK_KEY') },
+  careerjet: { fn: fromCareerjet, default: !!realEnv('CAREERJET_ID') }
 };
 
 // ---- Orchestration ---------------------------------------------------------
@@ -720,11 +866,21 @@ async function main() {
     }
   });
 
-  const filtered = rawJobs
+  const mapped = rawJobs
     .filter((j) => j.title && j.url)
     .filter((j) => isDeiRole(j))
     .filter((j) => isEuropeOrRemote(j.location, `${j.title} ${(j.tags || []).join(' ')}`))
     .map(toRecord);
+
+  // Language rule: drop ads written fully in another language unless they
+  // welcome English speakers AND offer remote capability.
+  const filtered = mapped.filter((r) =>
+    isAccessibleToEnglishSpeakers(`${r.title} ${r.description}`, r.english, r.remote)
+  );
+  const droppedForLanguage = mapped.length - filtered.length;
+  if (droppedForLanguage > 0) {
+    console.log(`  ⤷ language rule: dropped ${droppedForLanguage} non-English ad(s) without English+remote signals`);
+  }
 
   // Merge with seed unless --fresh, then dedupe by url (fallback id).
   const seed = FRESH ? [] : await loadSeed();

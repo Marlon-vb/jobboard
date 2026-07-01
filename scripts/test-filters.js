@@ -3,7 +3,14 @@
 // These guard the core promise: only specific DEI job functions get through,
 // and roles that merely mention diversity/equity in boilerplate do not.
 
-import { isDeiRole, isEuropeOrRemote, classifyRemote, detectEnglishFriendly } from '../lib/filters.js';
+import {
+  isDeiRole,
+  isEuropeOrRemote,
+  classifyRemote,
+  detectEnglishFriendly,
+  looksNonEnglish,
+  isAccessibleToEnglishSpeakers
+} from '../lib/filters.js';
 
 // Real DEI job functions — these MUST match.
 const shouldMatch = [
@@ -78,7 +85,48 @@ const englishChecks = [
   [detectEnglishFriendly('Diversity & Inclusion Lead', 'United Kingdom'), 'English-friendly']
 ];
 
+// Language-accessibility rule: fully non-English ads are dropped unless they
+// welcome English speakers AND offer remote capability.
+const GERMAN_AD =
+  'Wir suchen eine engagierte Person für unser Team. Sie entwickeln die Strategie für Vielfalt und ' +
+  'Inklusion und arbeiten eng mit der Geschäftsführung zusammen. Die Stelle ist in unserem Büro angesiedelt.';
+const GERMAN_AD_EN_REMOTE =
+  'Wir suchen eine Person für Vielfalt und Inklusion. Die Stelle ist 100% remote. Sehr gute ' +
+  'Englischkenntnisse genügen — wir arbeiten international und die Teams sind verteilt über Europa.';
+const ENGLISH_AD =
+  'We are looking for a Diversity & Inclusion Manager to build our strategy and partner with leadership across the region.';
+
+const langRuleChecks = [
+  // [text, english, remote, expectedKept]
+  [GERMAN_AD, 'Local language', 'On-site / Unspecified', false], // fully German, no signals → dropped
+  [GERMAN_AD, 'Unclear', 'On-site / Unspecified', false], // fully German, unclear → dropped
+  [GERMAN_AD_EN_REMOTE, 'English-friendly', 'Remote', true], // German ad but English OK + remote → kept
+  [GERMAN_AD, 'English-friendly', 'On-site / Unspecified', false], // English OK but no remote → dropped
+  [ENGLISH_AD, 'Unclear', 'On-site / Unspecified', true], // English ad always passes the rule
+  ['Diversity Manager', 'Unclear', 'On-site / Unspecified', true] // short title-only text → never dropped
+];
+
+// looksNonEnglish sanity
+const nonEnglishChecks = [
+  [looksNonEnglish(GERMAN_AD), true],
+  [looksNonEnglish(ENGLISH_AD), false],
+  [looksNonEnglish('Referent:in Vielfalt'), false] // too short to judge
+];
+
 let failures = 0;
+for (const [text, english, remote, want] of langRuleChecks) {
+  const got = isAccessibleToEnglishSpeakers(text, english, remote);
+  if (got !== want) {
+    console.error(`✗ language rule: got ${got}, want ${want} for english=${english}, remote=${remote}`);
+    failures++;
+  }
+}
+for (const [got, want] of nonEnglishChecks) {
+  if (got !== want) {
+    console.error(`✗ looksNonEnglish: got ${got}, want ${want}`);
+    failures++;
+  }
+}
 for (const [got, want] of remoteChecks) {
   if (got !== want) {
     console.error(`✗ remote: got "${got}", want "${want}"`);
@@ -122,5 +170,5 @@ if (failures) {
 }
 const total =
   shouldMatch.length + shouldNotMatch.length + europeOk.length + europeNo.length +
-  remoteChecks.length + englishChecks.length;
-console.log(`✓ all ${total} filter tests passed (DEI + Europe + remote + English)`);
+  remoteChecks.length + englishChecks.length + langRuleChecks.length + nonEnglishChecks.length;
+console.log(`✓ all ${total} filter tests passed (DEI + Europe + remote + English + language rule)`);
